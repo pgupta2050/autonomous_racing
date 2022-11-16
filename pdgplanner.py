@@ -4,7 +4,7 @@
 #########################################
 
 import numpy as np
-import theano.tensor as T
+import theano.tensor as T # requires numpy <= 1.21
 import matplotlib.pyplot as plt
 
 from ilqr import iLQR

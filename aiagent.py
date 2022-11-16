@@ -61,7 +61,6 @@ class Competitor1():
 
         opti.minimize((X[0,-1] - self.xgoal) ** 2 + (X[1,-1] - self.ygoal) ** 2) # cost
         # opti.minimize((X[0,:] - self.xgoal) @ (X[0,:] - self.xgoal).T + (X[1,:] - self.ygoal) @ (X[1,:] - self.ygoal).T) # cost
-
         
         opti.subject_to(X[:, 0] == self.X_0) # initial condition
 
@@ -111,7 +110,7 @@ class Competitor1():
 
 # Open Loop Test
 if __name__ == "__main__":
-    X_0 = np.array([0, 2, 4, np.pi/4]).T
+    X_0 = np.array([0, 2, 10, np.pi/4]).T
     X_ego_obsrvd = np.array([0, 0, 4, np.pi/6]).T
 
     AIAgent = Competitor1(X_0, X_ego_obsrvd, 5, 5)

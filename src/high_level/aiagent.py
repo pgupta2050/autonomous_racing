@@ -11,7 +11,7 @@ class Competitor1():
     AI Agent Competitor 1: 
     Goal tracking MPC with collision avoidance constraints
     """
-    def __init__(self, X_0, X_ego_obsrvd, xgoal, ygoal):
+    def __init__(self):
         self.dt = 0.1
         self.N = 10
         self.dsafe = 0.5
@@ -24,25 +24,25 @@ class Competitor1():
 
         self.X_ego_obsrvd = X_ego_obsrvd
 
-    def const_vel_model(self):
+    def const_vel_model(self, X_ego_obsrvd):
         """ 
         Method used by competitor 1 to obtain over the horizon trajectory of ego for collision avoidance:        
         Constant velocity model - assume velocity of ego remains at the current observed velocity over the
         horizon.
         """
         x_ego = np.zeros((1, self.N+1))
-        x_ego[0] = self.X_ego_obsrvd[0]
+        x_ego[0] = X_ego_obsrvd[0]
         y_ego = np.zeros((1, self.N+1))
-        y_ego[0] = self.X_ego_obsrvd[1]
+        y_ego[0] = X_ego_obsrvd[1]
 
         for k in range(self.N):
-            x_ego[0, k+1] = x_ego[0, k] + self.X_ego_obsrvd[2] * np.cos(self.X_ego_obsrvd[3]) * self.dt
-            y_ego[0, k+1] = y_ego[0, k] + self.X_ego_obsrvd[2] * np.sin(self.X_ego_obsrvd[3]) * self.dt
+            x_ego[0, k+1] = x_ego[0, k] + X_ego_obsrvd[2] * np.cos(X_ego_obsrvd[3]) * self.dt
+            y_ego[0, k+1] = y_ego[0, k] + X_ego_obsrvd[2] * np.sin(X_ego_obsrvd[3]) * self.dt
 
         # print(x_ego, y_ego)
         return x_ego, y_ego
 
-    def MPCOpt(self):
+    def MPCOpt(self, X_0, xgoal, ygoal):
         """
         J = (xN - xgoal)^2 + (yN - ygoal)^2
         s.t. dynamics
@@ -59,11 +59,11 @@ class Competitor1():
         X = opti.variable(4, self.N+1)
         U = opti.variable(2, self.N)
 
-        opti.minimize((X[0,-1] - self.xgoal) ** 2 + (X[1,-1] - self.ygoal) ** 2) # cost
+        opti.minimize((X[0,-1] - xgoal) ** 2 + (X[1,-1] - ygoal) ** 2) # cost
         # opti.minimize((X[0,:] - self.xgoal) @ (X[0,:] - self.xgoal).T + (X[1,:] - self.ygoal) @ (X[1,:] - self.ygoal).T) # cost
 
         
-        opti.subject_to(X[:, 0] == self.X_0) # initial condition
+        opti.subject_to(X[:, 0] == X_0) # initial condition
 
         for k in range(self.N):
             # dynamics

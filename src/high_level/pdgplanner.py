@@ -13,7 +13,8 @@ from ilqr.dynamics import AutoDiffDynamics
 
 class PDGILQR():
 
-    def __init__(self, dt, Horizon, x1_0, y1_0, v1_0, theta1_0, x2_0, y2_0, v2_0, theta2_0, xgoal1, ygoal1, xgoal2, ygoal2, dsafe, a1_0, omega1_0, a2_0, omega2_0):        
+    def __init__(self, dt, Horizon, dsafe):        
+        
         self.dt = dt
         self.N = Horizon
         self.x1_0 = x1_0
@@ -172,14 +173,14 @@ class PDGILQR():
 
         return cost
 
-    def solve_ilqr(self):
+    def solve_ilqr(self, x1_0, y1_0, v1_0, theta1_0, x2_0, y2_0, v2_0, theta2_0, xgoal1, ygoal1, xgoal2, ygoal2, a1_0, omega1_0, a2_0, omega2_0):
 
         nx = self.dynamics().state_size
         nu = self.dynamics().action_size
 
-        x0 = np.array([self.x1_0, self.y1_0, self.v1_0, self.theta1_0, \
-                self.x2_0, self.y2_0, self.v2_0, self.theta2_0, \
-                self.xgoal1, self.ygoal1, self.xgoal2, self.ygoal2, self.dsafe, self.a1_0, self.omega1_0, self.a2_0, self.omega2_0])  # Initial joint state.
+        x0 = np.array([x1_0, y1_0, v1_0, theta1_0, \
+                x2_0, y2_0, v2_0, theta2_0, \
+                xgoal1, ygoal1, xgoal2, ygoal2, dsafe, a1_0, omega1_0, a2_0, omega2_0])  # Initial joint state.
 
         # initialization        
         u_init = np.zeros((self.N, nu))

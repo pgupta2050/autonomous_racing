@@ -80,7 +80,7 @@ class Competitor1():
             opti.subject_to(opti.bounded(-self.omegalim, U[1, k], self.omegalim))
 
         # collision avoidance constraint
-        for k in range(self.N):
+        for k in range(self.N+1):
             opti.subject_to((X[0, k] - x_ego[0, k]) ** 2 + (X[1, k] - y_ego[0, k]) ** 2 >= self.dsafe ** 2)
 
         opti.solver('ipopt')        

@@ -7,9 +7,11 @@ import numpy as np
 import theano.tensor as T
 import matplotlib.pyplot as plt
 
+import sys
 from ilqr import iLQR
 from ilqr.cost import QRCost
 from ilqr.dynamics import AutoDiffDynamics
+
 
 class PDGILQR():
 
@@ -17,23 +19,7 @@ class PDGILQR():
         
         self.dt = dt
         self.N = Horizon
-        self.x1_0 = x1_0
-        self.y1_0 = y1_0
-        self.v1_0 = v1_0
-        self.theta1_0 = theta1_0
-        self.x2_0 = x2_0
-        self.y2_0 = y2_0
-        self.v2_0 = v2_0
-        self.theta2_0 = theta2_0
-        self.xgoal1 = xgoal1
-        self.ygoal1 = ygoal1
-        self.xgoal2 = xgoal2
-        self.ygoal2 = ygoal2
         self.dsafe = dsafe
-        self.a1_0 = a1_0
-        self.omega1_0 = omega1_0
-        self.a2_0 = a2_0
-        self.omega2_0 = omega2_0
 
     def on_iteration(self, iteration_count, xs, us, J_opt, accepted, converged):
         J_hist = []
@@ -217,8 +203,8 @@ if __name__ == "__main__":
     ygoal2 = 5
     dsafe = 0.5
 
-    Xsol, Usol = PDGILQR(dt, Horizon, x1_0, y1_0, v1_0, theta1_0, x2_0, y2_0, v2_0, theta2_0, \
-                        xgoal1, ygoal1, xgoal2, ygoal2, dsafe, a1_0, omega1_0, a2_0, omega2_0).solve_ilqr()
+    Xsol, Usol = PDGILQR(dt, Horizon, dsafe).solve_ilqr(x1_0, y1_0, v1_0, theta1_0, x2_0, y2_0, v2_0, theta2_0, \
+                        xgoal1, ygoal1, xgoal2, ygoal2, a1_0, omega1_0, a2_0, omega2_0)
 
     # Extract trajectory
     x1 = Xsol[:, 0]

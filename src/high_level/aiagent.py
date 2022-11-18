@@ -1,5 +1,5 @@
 from sys import path
-path.append(r"/home/optimal-v/Work/casadi-linux-py39-v3.5.5-64bit")
+# path.append(r"/home/casadi-linux-py38-v3.5.5-64bit")
 
 from casadi import *
 
@@ -17,12 +17,6 @@ class Competitor1():
         self.dsafe = 0.5
         self.alim = 5
         self.omegalim = 0.5
-
-        self.X_0 = X_0
-        self.xgoal = xgoal
-        self.ygoal = ygoal
-
-        self.X_ego_obsrvd = X_ego_obsrvd
 
     def const_vel_model(self, X_ego_obsrvd):
         """ 
@@ -42,7 +36,7 @@ class Competitor1():
         # print(x_ego, y_ego)
         return x_ego, y_ego
 
-    def MPCOpt(self, X_0, xgoal, ygoal):
+    def MPCOpt(self, X_0, xgoal, ygoal, X_ego_obsrvd):
         """
         J = (xN - xgoal)^2 + (yN - ygoal)^2
         s.t. dynamics
@@ -51,7 +45,7 @@ class Competitor1():
             X_0
         """
         # predict over the horizon trajectory of ego
-        x_ego, y_ego = self.const_vel_model()
+        x_ego, y_ego = self.const_vel_model(X_ego_obsrvd)
 
         # begin MPC optimization over the horizon
         opti = casadi.Opti()
@@ -98,11 +92,11 @@ if __name__ == "__main__":
     X_0 = np.array([0, 2, 1, 0]).T
     X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
 
-    AIAgent = Competitor1(X_0, X_ego_obsrvd, 5, 5)
-    X, U = AIAgent.MPCOpt()    
+    AIAgent = Competitor1()
+    X, U = AIAgent.MPCOpt(X_0, 5, 5,X_ego_obsrvd)    
     # print(X)
     # print(U)
-    xego, yego = AIAgent.const_vel_model()
+    xego, yego = AIAgent.const_vel_model(X_ego_obsrvd)
     
     plt.figure(1)
     plt.plot(X[0,:], X[1, :], "b")

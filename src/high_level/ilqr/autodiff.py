@@ -66,9 +66,11 @@ def batch_jacobian(f, wrt, size=None, *args, **kwargs):
         y_rep = f(x_rep, *args, **kwargs)
     else:
         if size is None:
-            size = f(*wrt, *args, **kwargs).shape[-1]
+            # size = f(wrt, *args, **kwargs).shape[-1]
+            size = f(wrt, args, kwargs).shape[-1]
         x_rep = [T.tile(x, (size, 1)) for x in wrt]
-        y_rep = f(*x_rep, *args, **kwargs)
+        # y_rep = f(x_rep, *args, **kwargs)
+        y_rep = f(x_rep, args, kwargs)
 
     J = T.grad(
         cost=None,

@@ -6,6 +6,7 @@
 import numpy as np
 import theano.tensor as T
 import matplotlib.pyplot as plt
+import time
 
 import sys
 from ilqr import iLQR
@@ -166,7 +167,7 @@ class PDGILQR():
 
         x0 = np.array([x1_0, y1_0, v1_0, theta1_0, \
                 x2_0, y2_0, v2_0, theta2_0, \
-                xgoal1, ygoal1, xgoal2, ygoal2, dsafe, a1_0, omega1_0, a2_0, omega2_0])  # Initial joint state.
+                xgoal1, ygoal1, xgoal2, ygoal2, self.dsafe, a1_0, omega1_0, a2_0, omega2_0])  # Initial joint state.
 
         # initialization        
         u_init = np.zeros((self.N, nu))
@@ -203,8 +204,14 @@ if __name__ == "__main__":
     ygoal2 = 5
     dsafe = 0.5
 
+    t0 = time.time()
+
     Xsol, Usol = PDGILQR(dt, Horizon, dsafe).solve_ilqr(x1_0, y1_0, v1_0, theta1_0, x2_0, y2_0, v2_0, theta2_0, \
                         xgoal1, ygoal1, xgoal2, ygoal2, a1_0, omega1_0, a2_0, omega2_0)
+
+    t1 = time.time()
+    total = t1-t0
+    print(total)
 
     # Extract trajectory
     x1 = Xsol[:, 0]

@@ -93,7 +93,7 @@ if __name__ == "__main__":
     X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
 
     AIAgent = Competitor1()
-    X, U = AIAgent.MPCOpt(X_0, 5, 5,X_ego_obsrvd)    
+    X, U = AIAgent.MPCOpt(X_0, 5, 5, X_ego_obsrvd)    
     # print(X)
     # print(U)
     xego, yego = AIAgent.const_vel_model(X_ego_obsrvd)

@@ -1,6 +1,11 @@
 close all; clc; clear
+rosshutdown
+
+%% initialize rosnode
+rosinit
+
 %% load evaluation driving data
-load('MPC_test_map.mat')
+load('/home/cralab/catkin_optimalProj/src/autonomous_racing/src/tracks/MPC_test_map.mat')
 x_map_list = map(:,1);
 y_map_list = map(:,2);
 map_length = length(map);
@@ -14,7 +19,7 @@ map_step = 0.2;
 %% States
 
 x = -5; 
-y = 20; 
+y = 20;
 v_ref = 15;
 v = 0;
 phi = 1; %-2.87; %-2.87; %1.5; %-1.3689;
@@ -40,8 +45,12 @@ yo1 = 100;
 wo1 = 4;
 ho1 = 5;
 
+%% Subscribe/Publish
+sub_traj = rossubscriber('traj', 'trajectory_msgs/JointTrajectory', 'DataFormat', 'struct'); 
+pub = rospublisher('odom','nav_msgs/Odometry');
+
 %% Initialize MPC
-predict_horizon = 5;
+predict_horizon = 10;
 delta_t_MPC = 0.5;
 eva_no = predict_horizon/delta_t_MPC + 1;
 
@@ -148,14 +157,29 @@ while(current_t <= 200)
     o1_worldFrame = [xo1, yo1];
     o1_vehFrame = (trans_matrix*[xo1 - x ;yo1 - y])';
 
+    v_ref_vehFrame = ones(eva_no,1) * v_ref;
+    
+    %% Consume the subscriber data
+    if ~isempty(sub_traj.LatestMessage)
+        x_ilqrRef = GetTraj(sub_traj.LatestMessage);
+        % got the  traj sequence
+        xy_ref_traj_vehFrame = x_ilqrRef(1:2,:)';
+        phi_ref_traj_vehFrame = x_ilqrRef(3,:)';
+        v_ref_vehFrame = x_ilqrRef(4,:)';
+        
+    end
+
+    %% Create reference to pass to mpc just from high level info
+
     %% Update MPC inputs
     switch coordinates
         case 1 % Coordinates in world frame
-            Xref = [xy_ref_traj, phi_ref_traj, ones(11,1) * 0, ones(11,1) * v_ref, ones(11,1) * 0, ones(11,1) * 0];
+            Xref = [xy_ref_traj, phi_ref_traj, ones(eva_no,1) * 0, ones(eva_no,1) * v_ref, ones(eva_no,1) * 0, ones(eva_no,1) * 0];
             x0 = [x y phi v];
             o1 = o1_worldFrame;
         case 2 % Coordinates in vehicle frame
-            Xref = [xy_ref_traj_vehFrame, phi_ref_traj_vehFrame, ones(11,1) * v_ref];
+%             Xref = [xy_ref_traj_vehFrame, phi_ref_traj_vehFrame, ones(eva_no,1) * v_ref];
+            Xref = [xy_ref_traj_vehFrame, phi_ref_traj_vehFrame, v_ref_vehFrame];
             x0 = [0 0 0 v];
             o1 = o1_vehFrame;
     end 
@@ -163,10 +187,10 @@ while(current_t <= 200)
     input.x = repmat(x0,eva_no,1);
     input.od = repmat([o1, 0, 0],eva_no,1);
     input.y = [Xref(1:eva_no-1,:) Zref];
-    input.yN = Xref(eva_no,1:3);    
+    input.yN = Xref(eva_no,1:3);
     input.x0 = x0;
     
-    output = Lateral_MPC(input);
+    output = tracking_MPC(input);
     output.info.objValue;
     t1 = toc;
     
@@ -190,7 +214,7 @@ while(current_t <= 200)
     theta = min(max(theta, -0.575), 0.575);
     ay = v^2/L*tan(theta);
 
-    [x y phi v theta ax beta]
+    [x y phi v theta ax beta];
 
     x_list = [x_list; x];
     v_list = [v_list; v];
@@ -200,6 +224,15 @@ while(current_t <= 200)
     ax_list = [ax_list;  ax];
     ay_list = [ay_list; ay];
 %     d_theta_list = [d_theta_list; d_theta];
+
+    %% Publish to high level
+    msg =  rosmessage(pub);
+    msg.Pose.Pose.Position.X = x;
+    msg.Pose.Pose.Position.Y = y;
+    msg.Twist.Twist.Linear.X = v;
+    msg.Pose.Pose.Orientation.Z = phi;
+    send(pub, msg);
+            
     %% Visualization
 %     addpoints(h1,output.x(:,1),output.x(:,2));
     addpoints(h1, xy_predict(:,1),xy_predict(:,2));
@@ -212,20 +245,6 @@ while(current_t <= 200)
     dyy = sin(phi + theta) * 0.5 * L;
     set(h3,'position', [x,y,dx,dy]);
     set(h4,'position', [x,y,dxx,dyy]);
-    
-%     set(s3,'XData',xy_ref_traj_vehFrame(:,1),'YData',xy_ref_traj_vehFrame(:,2));
-%     
-%     xy_ouput_vehFrame =  (trans_matrix*[output.x(:,1)' - x ;output.x(:,2)' - y])';
-%     switch coordinates
-%         case 1 % Coordinates in world frame
-%             set(s4,'XData',xy_ouput_vehFrame(:,1),'YData',xy_ouput_vehFrame(:,2));
-%             set(s5,'XData',1:11,'YData',phi_ref_traj);
-%         case 2 % Coordinates in vehicle frame
-%             set(s4,'XData',output.x(:,1),'YData',output.x(:,2));
-%             set(s5,'XData',1:11,'YData',phi_ref_traj_vehFrame);
-%     end
-%     
-%     set(s6,'XData',1:11,'YData',output.x(:,3));
     
     drawnow
     
@@ -252,4 +271,16 @@ function index = loop_index(index_raw, list_length)
         index = rem(index_raw,list_length);
         index = list_length + index;
     end
+end
+
+function x = GetTraj(JointTrajectory)
+    poses = reshape([JointTrajectory.points(:).positions],[3,21]);
+%     poses = reshape(poses,[3,21])
+%     x = poses(1,2:end);
+%     y = poses(2,2:end);
+%     phi = poses(3,2:end);
+    v = [JointTrajectory.points(:).velocities];
+%     v = v(2:end);
+    x = [poses;v];
+    % x is [x,y,phi,v] horizon sequence
 end

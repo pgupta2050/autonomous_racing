@@ -34,7 +34,7 @@ class Highlevel():
         v1_0 = 0
         theta1_0 = 0
         x2_0 = 0
-        y2_0 = 3
+        y2_0 = 0
         v2_0 = 0
         theta2_0 = 0
         # Initial augemnted control-states
@@ -81,13 +81,14 @@ class Highlevel():
         self.egotraj = JointTrajectory()
 
     def odomCallback(self, msg):
-        self.v1_0 = msg.twist.twist.x
+        self.v1_0 = msg.twist.twist.linear.x
         self.y1_0 = msg.pose.pose.position.y
         self.x1_0 = msg.pose.pose.position.x
         self.theta1_0 = msg.pose.pose.orientation.z
+        rospy.loginfo("Received low level odometry data for this step")
         
     def comp1PosCallback(self, msg):
-        self.v2_0 = msg.twist.twist.x
+        self.v2_0 = msg.twist.twist.linear.x
         self.y2_0 = msg.pose.pose.position.y
         self.x2_0 = msg.pose.pose.position.x
         self.theta2_0 = msg.pose.pose.orientation.z

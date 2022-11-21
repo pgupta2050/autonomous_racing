@@ -29,7 +29,7 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     %% ACADO directory
     % Example:
     % { Source location/ } acado-stable/external_packages/qpoases
-    srcAcado = 'F:/Uni_PhD_Research_Offline/';
+    srcAcado = '/home/ACADOtoolkit/';
 
     %% System Parameters - Kinematic Bicycle Model
     sysStates  = {'$s_x$', '$s_y$', '$\phi$', '$v$'}; % x-COM, y-COM, inertial heading, vehicle speed
@@ -109,7 +109,7 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     
     if EXPORT
         mpc.exportCode( 'export_MPC' );
-        copyfile([srcAcado,'acado-stable/external_packages/qpoases'], 'export_MPC/qpoases', 'f');
+        copyfile('/home/cralab/ACADOtoolkit/external_packages/qpoases', 'export_MPC/qpoases', 'f');
         
         % Generating, compiling and exporting MPC controller as '.mexw64'
         cd export_MPC

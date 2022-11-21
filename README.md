@@ -14,7 +14,7 @@ Key dependencies:
 
 Description:
 - `tracking_mpc.mex` is the the controller compiled from acado
-- `sim_lowlevel.m` is the low level control ros node
+- `SimTrack_MPC.m` is the low level control ros node
 
 Key dependencies:
 - Acado toolkit for matlab

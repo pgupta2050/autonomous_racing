@@ -11,38 +11,38 @@ class Competitor1():
     AI Agent Competitor 1: 
     Goal tracking MPC with collision avoidance constraints
     """
-    def __init__(self, X_0, X_ego_obsrvd, xgoal, ygoal):
+    def __init__(self):
         self.dt = 0.1
         self.N = 10
         self.dsafe = 0.5
         self.alim = 5
         self.omegalim = np.pi/4
 
-        self.X_0 = X_0
-        self.xgoal = xgoal
-        self.ygoal = ygoal
+        # self.X_0 = X_0
+        # self.xgoal = xgoal
+        # self.ygoal = ygoal
 
-        self.X_ego_obsrvd = X_ego_obsrvd
+        # self.X_ego_obsrvd = X_ego_obsrvd
 
-    def const_vel_model(self):
+    def const_vel_model(self, X_ego_obsrvd):
         """ 
         Method used by competitor 1 to predict over the horizon trajectory of ego for collision avoidance:        
         Constant velocity model - assume velocity of ego remains at the current observed velocity over the
         horizon.
         """
         x_ego = np.zeros((1, self.N+1))
-        x_ego[0] = self.X_ego_obsrvd[0]
+        x_ego[0] = X_ego_obsrvd[0]
         y_ego = np.zeros((1, self.N+1))
-        y_ego[0] = self.X_ego_obsrvd[1]
+        y_ego[0] = X_ego_obsrvd[1]
 
         for k in range(self.N):
-            x_ego[0, k+1] = x_ego[0, k] + self.X_ego_obsrvd[2] * np.cos(self.X_ego_obsrvd[3]) * self.dt
-            y_ego[0, k+1] = y_ego[0, k] + self.X_ego_obsrvd[2] * np.sin(self.X_ego_obsrvd[3]) * self.dt
+            x_ego[0, k+1] = x_ego[0, k] + X_ego_obsrvd[2] * np.cos(X_ego_obsrvd[3]) * self.dt
+            y_ego[0, k+1] = y_ego[0, k] + X_ego_obsrvd[2] * np.sin(X_ego_obsrvd[3]) * self.dt
 
         # print(x_ego, y_ego)
         return x_ego, y_ego
 
-    def MPCOpt(self):
+    def MPCOpt(self, X_0, X_ego_obsrvd, xgoal, ygoal):
         """
         J = (xN - xgoal)^2 + (yN - ygoal)^2
         s.t. dynamics
@@ -51,7 +51,7 @@ class Competitor1():
             X_0
         """
         # predict over the horizon trajectory of ego
-        x_ego, y_ego = self.const_vel_model()
+        x_ego, y_ego = self.const_vel_model(X_ego_obsrvd)
 
         # begin MPC optimization over the horizon
         opti = casadi.Opti()
@@ -59,10 +59,10 @@ class Competitor1():
         X = opti.variable(4, self.N+1)
         U = opti.variable(2, self.N)
 
-        opti.minimize((X[0,-1] - self.xgoal) ** 2 + (X[1,-1] - self.ygoal) ** 2) # cost
+        opti.minimize((X[0,-1] - xgoal) ** 2 + (X[1,-1] - ygoal) ** 2) # cost
         # opti.minimize((X[0,:] - self.xgoal) @ (X[0,:] - self.xgoal).T + (X[1,:] - self.ygoal) @ (X[1,:] - self.ygoal).T) # cost
         
-        opti.subject_to(X[:, 0] == self.X_0) # initial condition
+        opti.subject_to(X[:, 0] == X_0) # initial condition
 
         for k in range(self.N):
             # dynamics
@@ -96,7 +96,7 @@ class Competitor1():
         To handle cases where nmpc is not solvable 
         """
         X = np.zeros((4, self.N+1))
-        X[:,0] = self.X_0
+        X[:,0] = X_0
         U = np.zeros((2, self.N))
         
         for k in range(self.N):
@@ -113,11 +113,12 @@ if __name__ == "__main__":
     X_0 = np.array([0, 2, 10, np.pi/4]).T
     X_ego_obsrvd = np.array([0, 0, 4, np.pi/6]).T
 
-    AIAgent = Competitor1(X_0, X_ego_obsrvd, 5, 5)
-    X, U = AIAgent.MPCOpt()    
+    AIAgent = Competitor1()
+
+    X, U = AIAgent.MPCOpt(X_0, X_ego_obsrvd, 5, 5)    
     # print(X)
     # print(U)
-    xego, yego = AIAgent.const_vel_model()
+    xego, yego = AIAgent.const_vel_model(X_ego_obsrvd)
     
     plt.figure(1)
     plt.plot(X[0,:], X[1, :], "b")

@@ -33,7 +33,7 @@ class Highlevel():
         # Initial states
         x1_0 = 0
         y1_0 = 0
-        v1_0 = 0
+        v1_0 = 2
         theta1_0 = 0
         x2_0 = 0
         y2_0 = 0
@@ -74,15 +74,20 @@ class Highlevel():
         self.compy = 3
         self.compv = 0
         self.comptheta = 0
+        self.compa = 0
+        self.compomega = 0
 
         # X_0 = np.array([0, 1, 1, 0]).T
-        X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
+        # X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
+        X_ego_obsrvd = np.array([0, 0, 0, 0]).T
         xgoal = 10
         ygoal = 5
-        self.goalList = [[10,20,30,40,50],
-                         [5,10,20,30,40]]
-                       # [[0 ,3.0100, 11.6900, 25.0000, 41.3100, 58.6800, 75.0000, 88.3000, 96.9800,100.0000],
-                        #    [0, 17.1000, 32.1300, 43.3000, 49.2400, 49.2400, 43.3000, 32.1300, 17.1000, 0]]
+        # self.goalList = [[10,20,30,40,50],
+                        #  [5,10,20,30,40]]
+        self.goalList = [[0 ,3.0100, 11.6900, 25.0000, 41.3100, 58.6800, 75.0000, 88.3000, 96.9800,100.0000],
+                         [0, 17.1000, 32.1300, 43.3000, 49.2400, 49.2400, 43.3000, 32.1300, 17.1000, 0]]
+        self.goalList = [[0,17.1010, 32.1394,   43.3013,   49.2404,   49.2404,   43.3013,   32.1394,   17.1010,         0],
+                        [0, -3.0154,  -11.6978,  -25.0000,  -41.3176,  -58.6824,  -75.0000,  -88.3022,  -96.9846, -100.0000]]
 
         # self.X_0 = X_0
         self.xgoal = xgoal
@@ -110,12 +115,16 @@ class Highlevel():
             self.y1_0 = msg.pose.pose.position.y
             self.x1_0 = msg.pose.pose.position.x
             self.theta1_0 = msg.pose.pose.orientation.z
+            # self.a1_0 = msg.twist.twist.angular.x #acc
+            # self.omega1_0 = msg.twist.twist.angular.z #steer rate
 
             # tracked one segment. update competitor states for highlevel
             self.v2_0 = self.compv
             self.y2_0 = self.compy
             self.x2_0 = self.compx
             self.theta2_0 = self.comptheta
+            # self.a2_0 = self.compa
+            # self.omega2_0 = self.compomega
 
             # this means new goal to be set for new plan
             self.updateGoal(self.segmentCount)
@@ -134,6 +143,8 @@ class Highlevel():
         self.compy = X[1,1]
         self.compv = X[2,1]
         self.comptheta = X[3,1]
+        self.compa = U[0,1]
+        self.compomega = U[1,1]
 
         # save competitor trajectory
         self.X0List[self.stepCount,:] = self.X_0

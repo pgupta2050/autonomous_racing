@@ -181,6 +181,8 @@ while time(end) < Tf
             msg.Twist.Twist.Linear.X = states.value(4);
             msg.Pose.Pose.Orientation.Z = states.value(3);
             msg.Pose.Pose.Position.Z = get_new_segment;
+            msg.Twist.Twist.Angular.Z = output.u(1,1);
+            msg.Twist.Twist.Angular.X = output.u(1,2);
             send(pub, msg);
         end
         
@@ -194,6 +196,8 @@ while time(end) < Tf
             msg.Twist.Twist.Linear.X = states.value(4);
             msg.Pose.Pose.Orientation.Z = states.value(3);
             msg.Pose.Pose.Position.Z = get_new_segment;
+            msg.Twist.Twist.Angular.Z = output.u(1,1);
+            msg.Twist.Twist.Angular.X = output.u(1,2);
             send(pub, msg);
         end
     end
@@ -313,13 +317,19 @@ annotation("textbox",txtDim1,'String',txtStr1,'Interpreter','latex','FitBoxToTex
 %     grid on;
 % end
 %%
+R = 50;                                         % Track radius
+[xTrack,yTrack] = genCircularRef(R,[R,0],1000); % Circular track
+load("waypoints_R=50_n=10_90deg.mat")
 
 figure(2)
 plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
 hold on
-plot(XSim(1,:)',XSim(2,:)','-*','LineWidth',wLine,'MarkerSize',3);
+grid on;
+plot(XSim(1,1:155)',XSim(2,1:155)','-*','LineWidth',wLine,'MarkerSize',3);
 plot(comptraj4.e00, comptraj4.e1,'-+','LineWidth',wLine,'MarkerSize',3)
-legend("planned", "actual ego", "comp")
+scatter(xWaypt, yWaypt)
+plot(xTrack,yTrack,'k--','LineWidth',wLine/2);
+legend("planned", "actual ego", "comp","trackpoints","Track")
 
 
 figure(5)
@@ -349,4 +359,13 @@ function x = GetTraj(JointTrajectory)
 %     v = v(2:end);
     x = [poses;v];
     % x is [x,y,phi,v] horizon sequence
+end
+
+%% Helper function
+function [ X, Y ] = genCircularRef( R, c, n )
+
+    theta = linspace(pi/2,-pi/2,n)';
+    X = R.*cos(theta) + c(1) -50;
+    Y = R.*sin(theta) + c(2) - 50;
+
 end

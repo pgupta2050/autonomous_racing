@@ -22,7 +22,9 @@ EXPORT = 0; % Before running the function 'genAutoraceMPC', change the
 Ts = 0.1;   % Sampling time
 N = 5;     % Prediction horizon [steps]
 
+if EXPORT==1, tic; end
 [ carStates, carInputs, carOde, carParams ] = genAutoraceMPC( N, Ts, EXPORT );
+if EXPORT==1, tGenMPC = toc; disp(['Time(genAutoraceMPC) = ',num2str(tGenMPC,'%.6f'),' seconds.']); return; end
 
 %% Simulation - Initialisation
 sysStates  = {'$s_x$', '$s_y$', '$\phi$', '$v$'}; % x-COM, y-COM, inertial heading, vehicle speed
@@ -33,18 +35,8 @@ n = length(carStates);
 m = length(carInputs);
 n_U = m;
 
-% R = 50;     % Track radius
+% R = 50;                                     % Track radius
 % [xTrack,yTrack] = genTrackRef(R,1000);      % Circular track
-% xTrack(1) = []; yTrack(1) = [];
-% xTrack1 = xTrack; yTrack1 = yTrack;
-% 
-% mapHighLevel = readcell('high_level_traj.txt'); % sx, sy, v, phi
-% mapHighLevel = cell2mat(mapHighLevel);
-% idxMapInit = 1;
-% xTrack = mapHighLevel(idxMapInit:end,1);
-% yTrack = mapHighLevel(idxMapInit:end,2);
-% vTrack = mapHighLevel(idxMapInit:end,3);
-% pTrack = mapHighLevel(idxMapInit:end,4);
 
 % xTrack = mapTrack(:,1);                     % Recorded map
 % yTrack = mapTrack(:,2)-mapTrack(1,2);
@@ -54,31 +46,48 @@ n_U = m;
 % xTrack = ones(1000,1);                      % Straight line
 % yTrack = 1.*linspace(1,1000,1000)';
 
-Tf = 900*.1;
-% X0 = [xTrack(1), -1, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
-% X0 = [50,         0, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
-X0 = [0, 0, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
-% X0 = [4, 2, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
+% mapHighLevel = readcell('high_level_traj.txt'); % sx, sy, v, phi
+% mapHighLevel = cell2mat(mapHighLevel);
+% idxMapInit = 1;
+% xTrack = mapHighLevel(idxMapInit:end,1);
+% yTrack = mapHighLevel(idxMapInit:end,2);
+% vTrack = mapHighLevel(idxMapInit:end,3);
+% pTrack = mapHighLevel(idxMapInit:end,4);
 
-input.od = [];
+Tf = 900*.1;
+% X0 = [xTrack(1)-.1, -0.1, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
+X0 = [0, 0, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
+
+% xTrack = xTrack(floor(logspace(0.5,2,40)));
+% yTrack = yTrack(floor(logspace(0.5,2,40)));
+% [xTrack,yTrack,pTrack] = genVehicleRef([X0(1:2);xTrack(1:end-1),yTrack(1:end-1)]',[xTrack,yTrack]');
+% xTrack = xTrack';
+% yTrack = yTrack';
+% pTrack = pTrack';
+% vTrack = 1.*ones(size(xTrack));
+% vTrack = 1.*logspace(0.1,0.9,length(xTrack))';
+
+d_safe = 0.0;
+
+% obstacle = [1.75, 1.0, d_safe]; % ox, oy
+% obstacle = [2.0 , 1.0, d_safe]; % ox, oy
+% obstacle = [2.5 , 1.0, d_safe]; % ox, oy
+% obstacle = [3.0 , 1.0, d_safe]; % ox, oy
+% obstacle = [3.5 , 1.0, d_safe]; % ox, oy
+% obstacle = [4.0 , 1.0, d_safe]; % ox, oy
+
+obstacle = [2.0 , 0.5, d_safe]; % ox, oy
+
+input.od = repmat(obstacle,N+1,1);
 
 Uref = zeros(N,n_U);
 input.u = Uref;
 
-input.W = diag([10,10,0.5,0,10,0.5]); % sx, sy, phi, v, delta_f, a
-input.WN = diag([1,1,0.1,0]);
+% input.W = diag([10,10,0.5,0,10,0.5]); % sx, sy, phi, v, delta_f, a
+% input.WN = diag([1,1,0.1,0]);
 
 input.W = diag([10,10,0,2,1,0.1]); % sx, sy, phi, v, delta_f, a
 input.WN = diag([1,1,0,1]);
-
-% input.W = diag([5,5,1,1,2,0.5]); % sx, sy, phi, v, delta_f, a % recorded track gain
-% input.WN = diag([1,1,1,0]);
-
-% input.W = diag([10,10,5,1,2,0.5]); % sx, sy, phi, v, delta_f, a % recorded track gain very good but problem on u-turn
-% input.WN = diag([2,2,1,0]);
-
-% input.W = diag([1,1,0,0,10,0.5]); % sx, sy, phi, v, delta_f, a
-% input.WN = diag([10,10,0,0]);
 
 %% Simulation - Running
 disp('------------------------------------------------------------------');
@@ -107,7 +116,6 @@ get_new_segment = 1;
 
 ref_traj_list = [];
 
-% visualize_learn;
 while time(end) < Tf
 %     tic
 
@@ -120,22 +128,32 @@ while time(end) < Tf
         xy_ref_traj = x_ilqrRef(1:2,:)';
         phi_ref_traj = x_ilqrRef(3,:)';
         v_ref_traj = x_ilqrRef(4,:)';
+
         xTrack = xy_ref_traj(:,1);
         yTrack = xy_ref_traj(:,2);
+        pTrack = phi_ref_traj;
+        vTrack = v_ref_traj;
+        obstacle(1) = 0;        % Obstacle x-position
+        obstacle(2) = 0;        % Obstacle y-position
+        obstacle(3) = d_safe;   % Safety distance
+
         msg.Pose.Pose.Position.Z = get_new_segment;
         % wait to get new traj till segment end is reached
         get_new_segment = 0;
         
         ref_traj_list = [ref_traj_list; xy_ref_traj];
-               
     end
     
     % Time Varying Reference Update
-    Xref =    [xTrack(k:k+N-1),yTrack(k:k+N-1),1.*phi_ref_traj(k:k+N-1),1.*v_ref_traj(k:k+N-1)]; %repmat(Xref,N,  1);
-    input.x = [xTrack(k:k+N),  yTrack(k:k+N),  1.*phi_ref_traj(k:k+N),  1.*v_ref_traj(k:k+N)];   %repmat(Xref,N+1,1);
+    Xref =    [xTrack(k:k+N-1),yTrack(k:k+N-1),1.*pTrack(k:k+N-1),1.*vTrack(k:k+N-1)]; %repmat(Xref,N,  1);
+    input.x = [xTrack(k:k+N),  yTrack(k:k+N),  1.*pTrack(k:k+N),  1.*vTrack(k:k+N)];   %repmat(Xref,N+1,1);
     
     input.y = [Xref(1:N,:), Uref];
     input.yN = Xref(N,:);
+
+    % Obstacle(s)
+%     if k > (length(xTrack)/2), obstacle = [3.0, 1.2, d_safe]; end
+    input.od = repmat(obstacle,N+1,1);
 
     % Solve NMPC OCP
     input.x0 = state_sim(end,:);
@@ -145,7 +163,7 @@ while time(end) < Tf
     INFO_MPC = [INFO_MPC; output.info];
     KKT_MPC = [KKT_MPC; output.info.kktValue];
     controls_MPC = [controls_MPC; output.u(1,:)];
-    input.x = output.x;
+%     input.x = output.x;
     input.u = output.u;
     
     % Simulate System
@@ -167,6 +185,7 @@ while time(end) < Tf
           'k=',num2str(k)]);
 
     k = k + 1;
+%     if k+N-1 >= length(xTrack), disp('End of Track'); break; end    % Only used for offline single segment simulation
     if k+N-1 >= length(xTrack)
         disp('End of Track segment');
         get_new_segment = 1;

@@ -318,7 +318,7 @@ figure(2)
 plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
 hold on
 plot(XSim(1,:)',XSim(2,:)','-*','LineWidth',wLine,'MarkerSize',3);
-plot(comptraj4.VarName1, comptraj4.VarName2,'-*','LineWidth',wLine,'MarkerSize',3)
+plot(comptraj4.e00, comptraj4.e1,'-+','LineWidth',wLine,'MarkerSize',3)
 legend("planned", "actual ego", "comp")
 
 

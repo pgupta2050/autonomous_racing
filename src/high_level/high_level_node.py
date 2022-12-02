@@ -8,9 +8,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-from std_msgs.msg import Float64MultiArray
 from nav_msgs.msg import Odometry
-from trajectory_msgs.msg import MultiDOFJointTrajectory
 from trajectory_msgs.msg import JointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
 
@@ -81,8 +79,10 @@ class Highlevel():
         X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
         xgoal = 10
         ygoal = 5
-        self.goalList = [[10,20,30,40],
-                         [5,10,20,30]]
+        self.goalList = [[10,20,30,40,50],
+                         [5,10,20,30,40]]
+                       # [[0 ,3.0100, 11.6900, 25.0000, 41.3100, 58.6800, 75.0000, 88.3000, 96.9800,100.0000],
+                        #    [0, 17.1000, 32.1300, 43.3000, 49.2400, 49.2400, 43.3000, 32.1300, 17.1000, 0]]
 
         # self.X_0 = X_0
         self.xgoal = xgoal
@@ -90,8 +90,10 @@ class Highlevel():
         self.X_ego_obsrvd = X_ego_obsrvd
 
         self.egotraj = JointTrajectory()
+        
+        self.compTraj = np.zeros((200,4))
+        self.X0List = np.zeros((16,4))
 
-        self.X0List = np.zeros((20,4))
         self.stepCount = 0 # step np. inside the segment (row number for saving comp traj)
         self.segmentCount = 0 # which segment from ilqr being tracked
         self.solve_ilqr = 0 # flag for when the ilqr needs to be solved
@@ -103,8 +105,6 @@ class Highlevel():
         phi = msg.pose.pose.orientation.z
         self.X_ego_obsrvd = np.array([x,y,v,phi]).T
         
-        # rospy.loginfo("Received low level odometry data for this step")
-
         if (msg.pose.pose.position.z == 1):
             self.v1_0 = msg.twist.twist.linear.x
             self.y1_0 = msg.pose.pose.position.y
@@ -117,9 +117,7 @@ class Highlevel():
             self.x2_0 = self.compx
             self.theta2_0 = self.comptheta
 
-            # this means new goal to be set
-            # self.xgoal = 20
-            # self.ygoal = 10
+            # this means new goal to be set for new plan
             self.updateGoal(self.segmentCount)
             rospy.loginfo("updated goal for segment : %d", self.segmentCount)
 
@@ -127,6 +125,7 @@ class Highlevel():
             self.stepCount = 0
             self.segmentCount = self.segmentCount + 1
             self.solve_ilqr = 1
+
 
         # Update competitor state
         self.X_0 = np.array([self.compx,self.compy,self.compv,self.comptheta]).T
@@ -136,15 +135,19 @@ class Highlevel():
         self.compv = X[2,1]
         self.comptheta = X[3,1]
 
-        # Update step counter
+        # save competitor trajectory
         self.X0List[self.stepCount,:] = self.X_0
+        segk = (self.segmentCount-1)*16
+        self.compTraj[segk + self.stepCount,:] = self.X_0
+
+        # Update step counter
         self.stepCount = self.stepCount + 1
 
         print("---------Segment: ",self.segmentCount -1 ," --------------------")
-        print("---------Step of segment: ",self.stepCount," --------------------")
+        print("---------Step of segment: ",self.stepCount-1," --------------------")
         print("Ego's state: ", self.X_ego_obsrvd) #, self.compx,self.compy,self.compv,self.comptheta)
         print("Competitor state: ", self.X_0)
-        print("Com traj is : ", self.X0List)
+        # print("Com traj is : ", self.X0List)
         print("----------------------------------------------------------")
         
     def comp1PosCallback(self, msg):
@@ -168,22 +171,12 @@ class Highlevel():
 
         if self.solve_ilqr == 1:
                         
-            # if self.segmentCount == 0:
-            #     print("segment is the first one count =0")
-            #     print(self.x1_0, self.y1_0, self.v1_0, self.theta1_0, self.x2_0, self.y2_0, self.v2_0, self.theta2_0, \
-            #                     self.xgoal1, self.ygoal1, self.xgoal2, self.ygoal2, self.a1_0, self.omega1_0, self.a2_0, self.omega2_0)
-            #     Xsol, _ = self.hlplanner.solve_ilqr(self.x1_0, self.y1_0, self.v1_0, self.theta1_0, 0, 3, 0, 0, \
-            #                      self.xgoal1, self.ygoal1, self.xgoal2, self.ygoal2, self.a1_0, self.omega1_0, self.a2_0, self.omega2_0)
-            # else:
-            print(self.x1_0, self.y1_0, self.v1_0, self.theta1_0, self.x2_0, self.y2_0, self.v2_0, self.theta2_0, \
-                            self.xgoal1, self.ygoal1, self.xgoal2, self.ygoal2, self.a1_0, self.omega1_0, self.a2_0, self.omega2_0)
             Xsol, _ = self.hlplanner.solve_ilqr(self.x1_0, self.y1_0, self.v1_0, self.theta1_0, self.x2_0, self.y2_0, self.v2_0, self.theta2_0, \
                             self.xgoal1, self.ygoal1, self.xgoal2, self.ygoal2, self.a1_0, self.omega1_0, self.a2_0, self.omega2_0)
 
             time_end = rospy.Time.now()
             duration = time_end - time_begin
             rospy.loginfo("ilqr call+comutation for " + str(duration.to_sec()) + " secs")
-            # print("Xsol from ilqr is: \n", Xsol)
         
             pointsList = []
             # xsol = 12x20
@@ -199,11 +192,9 @@ class Highlevel():
             self.egotraj.points = pointsList
             self.traj_publisher.publish(self.egotraj)
         
-            np.savetxt("comptraj.txt",self.X0List)
+            np.savetxt("comptraj.txt",self.compTraj)
 
             self.solve_ilqr = 0 # reset the flag
-
-        # rospy.loginfo("In timerCallback")
 
 if __name__ == '__main__':
      try:

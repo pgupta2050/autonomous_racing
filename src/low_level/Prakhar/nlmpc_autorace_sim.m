@@ -69,16 +69,17 @@ X0 = [0, 0, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
 
 d_safe = 0.0;
 
-% obstacle = [1.75, 1.0, d_safe]; % ox, oy
-% obstacle = [2.0 , 1.0, d_safe]; % ox, oy
-% obstacle = [2.5 , 1.0, d_safe]; % ox, oy
-% obstacle = [3.0 , 1.0, d_safe]; % ox, oy
-% obstacle = [3.5 , 1.0, d_safe]; % ox, oy
-% obstacle = [4.0 , 1.0, d_safe]; % ox, oy
+% xObs = 1.75;    yObs = 1.0;
+% xObs = 2.0 ;    yObs = 1.0;
+% xObs = 2.5 ;    yObs = 1.0;
+% xObs = 3.0 ;    yObs = 1.0;
+% xObs = 3.5 ;    yObs = 1.0;
+xObs = 4.0 ;    yObs = 1.0;
+% xObs = 2.0 ;    yObs = 0.5;
 
-obstacle = [2.0 , 0.5, d_safe]; % ox, oy
-
-input.od = repmat(obstacle,N+1,1);
+xObs = xObs.*ones(size(xTrack));    xObs = linspace(2,3,length(xTrack))';
+yObs = yObs.*ones(size(xTrack));
+dSafe = d_safe.*ones(size(xObs));
 
 Uref = zeros(N,n_U);
 input.u = Uref;
@@ -101,20 +102,22 @@ controls_MPC = [];
 state_sim = X0;
 input_sim = [];
 
-% Let high level know controller is alove
-get_new_segment = 1;
-msg =  rosmessage(pub);
-msg.Pose.Pose.Position.X = X0(1);
-msg.Pose.Pose.Position.Y = X0(2);
-msg.Twist.Twist.Linear.X = X0(4);
-msg.Pose.Pose.Orientation.Z = X0(3);
-msg.Pose.Pose.Position.Z = get_new_segment;
-send(pub, msg);
-
-% set flag to begin loop
-get_new_segment = 1;
-
-ref_traj_list = [];
+if ROS_ENABLE == 1
+    % Let high level know controller is alove
+    get_new_segment = 1;
+    msg =  rosmessage(pub);
+    msg.Pose.Pose.Position.X = X0(1);
+    msg.Pose.Pose.Position.Y = X0(2);
+    msg.Twist.Twist.Linear.X = X0(4);
+    msg.Pose.Pose.Orientation.Z = X0(3);
+    msg.Pose.Pose.Position.Z = get_new_segment;
+    send(pub, msg);
+    
+    % set flag to begin loop
+    get_new_segment = 1;
+    
+    ref_traj_list = [];
+end
 
 while time(end) < Tf
 %     tic
@@ -133,9 +136,11 @@ while time(end) < Tf
         yTrack = xy_ref_traj(:,2);
         pTrack = phi_ref_traj;
         vTrack = v_ref_traj;
-        obstacle(1) = 0;        % Obstacle x-position
-        obstacle(2) = 0;        % Obstacle y-position
-        obstacle(3) = d_safe;   % Safety distance
+
+%         xy_AI_predict_traj = __;      % <<<<< pass data from ROS to here
+        xObs = xy_AI_predict_traj(:,1); % Column vector, Obstacle x-position
+        yObs = xy_AI_predict_traj(:,2); % Column vector, Obstacle y-position
+        dSafe = d_safe.*ones(size(xObs));
 
         msg.Pose.Pose.Position.Z = get_new_segment;
         % wait to get new traj till segment end is reached
@@ -152,8 +157,8 @@ while time(end) < Tf
     input.yN = Xref(N,:);
 
     % Obstacle(s)
-%     if k > (length(xTrack)/2), obstacle = [3.0, 1.2, d_safe]; end
-    input.od = repmat(obstacle,N+1,1);
+    obstacle = [xObs(k:k+N),yObs(k:k+N),dSafe(k:k+N)];
+    input.od = obstacle;
 
     % Solve NMPC OCP
     input.x0 = state_sim(end,:);
@@ -226,10 +231,10 @@ fHeight = 335; %240;420
 
 tk = time';
 XSim = state_sim';
-XSim(3,:) = rad2deg(XSim(3,:));
-XSim(4,:) = 3.6.*XSim(4,:);
+% XSim(3,:) = rad2deg(XSim(3,:));
+% XSim(4,:) = 3.6.*XSim(4,:);
 USim = input_sim';
-USim(1,:) = rad2deg(USim(1,:));
+% USim(1,:) = rad2deg(USim(1,:));
 
 % State Trajectories
 % figure;
@@ -278,16 +283,22 @@ USim(1,:) = rad2deg(USim(1,:));
 wLine = 1;
 figure; hold on; grid on; axis equal; axis padded;
 title('\bf Vehicle Trajectory','Interpreter','latex');
-title(['\bf Vehicle Trajectory $(N=',num2str(N),', T_s=',num2str(Ts),')$'], ...
+title(['\bf Vehicle Trajectory \rm$(N=',num2str(N),', T_s=',num2str(Ts),')$'], ...
       ['$x_0=[',num2str(X0(1)),',',num2str(X0(2)),',',num2str(rad2deg(X0(3))),'^{\circ},',num2str(X0(4)),']$'], ...
       'Interpreter','latex');
-plot(xTrack,yTrack,'-*','LineWidth',wLine,'MarkerSize',3);
+plot(xTrack,yTrack,'--*','LineWidth',wLine,'MarkerSize',3);
 plot(XSim(1,:)',XSim(2,:)','-*','LineWidth',wLine,'MarkerSize',3);
 plot(XSim(1,1) ,XSim(2,1),'ko');
 plot(Xref(:,1) ,Xref(:,2),'ro');
+[marginX, marginY] = genTrackRef(d_safe,1000);
+N_Obs = length(obstacle(:,1));
+for i=1:N_Obs, plot(marginX+obstacle(i,1),marginY+obstacle(i,2),'m:','LineWidth',wLine); end
+plot(obstacle(:,1),obstacle(:,2),'m.');
 xlabel('$s_x$','Interpreter','latex');
 ylabel('$s_y$','Interpreter','latex');
-legend({'Planner','$s_k$','$s_0$','Horizon'},'Interpreter','latex');
+lgdLabel = {'Planner','$s_k$','$s_0$','Horizon','$d_{safe}$','$[o_x,o_y]$'};
+lgdLabel(5+N_Obs) = lgdLabel(end); lgdLabel(N_Obs:5+N_Obs-1) = {''};
+legend(lgdLabel,'Interpreter','latex','Location','southeast');
 txtDim1 = [0.175, 0.75, 0.3, 0.1];
 txtStr1 = {['$W\matrix{ s_x & ',num2str(input.W(1,1)),'&',num2str(input.WN(1,1)), ...
                   ' \cr s_y & ',num2str(input.W(2,2)),'&',num2str(input.WN(2,2)), ...
@@ -331,8 +342,8 @@ annotation("textbox",txtDim1,'String',txtStr1,'Interpreter','latex','FitBoxToTex
 %     ylabel(sysInputs(i),'Interpreter','latex');
 %     grid on;
 % end
-%%
 
+%%
 figure(2)
 plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
 hold on

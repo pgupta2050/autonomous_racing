@@ -1,6 +1,5 @@
 from sys import path
-# path.append(r"/home/casadi-linux-py38-v3.5.5-64bit")
-
+path.append(r"/home/casadi-linux-py38-v3.5.5-64bit")
 from casadi import *
 
 import numpy as np
@@ -16,11 +15,18 @@ class Competitor1():
         self.N = 10
         self.dsafe = 0.5
         self.alim = 5
-        self.omegalim = 0.5
+        self.omegalim = np.pi/4
+
+        # self.X_0 = X_0
+        # self.xgoal = xgoal
+        # self.ygoal = ygoal
+
+        # self.X_ego_obsrvd = X_ego_obsrvd
+
 
     def const_vel_model(self, X_ego_obsrvd):
         """ 
-        Method used by competitor 1 to obtain over the horizon trajectory of ego for collision avoidance:        
+        Method used by competitor 1 to predict over the horizon trajectory of ego for collision avoidance:        
         Constant velocity model - assume velocity of ego remains at the current observed velocity over the
         horizon.
         """
@@ -55,7 +61,6 @@ class Competitor1():
 
         opti.minimize((X[0,-1] - xgoal) ** 2 + (X[1,-1] - ygoal) ** 2) # cost
         # opti.minimize((X[0,:] - self.xgoal) @ (X[0,:] - self.xgoal).T + (X[1,:] - self.ygoal) @ (X[1,:] - self.ygoal).T) # cost
-
         
         opti.subject_to(X[:, 0] == X_0) # initial condition
 
@@ -75,26 +80,44 @@ class Competitor1():
             opti.subject_to(opti.bounded(-self.omegalim, U[1, k], self.omegalim))
 
         # collision avoidance constraint
-        for k in range(self.N):
+        for k in range(self.N+1):
             opti.subject_to((X[0, k] - x_ego[0, k]) ** 2 + (X[1, k] - y_ego[0, k]) ** 2 >= self.dsafe ** 2)
+        
+        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
+        opti.solver('ipopt', opts)        
+        
+        try:
+            sol = opti.solve()
+            return sol.value(X), sol.value(U)
+        except:
+            return self.if_no_mpc_sol(X_0)
 
-        opti.solver('ipopt')
+    def if_no_mpc_sol(self, X_0):
+        """
+        To handle cases where nmpc is not solvable 
+        """
+        X = np.zeros((4, self.N+1))
+        X[:,0] = X_0
+        U = np.zeros((2, self.N))
+        
+        for k in range(self.N):
+            X[0, k+1] = X[0, k] + X[2, k] * np.cos(X[3, k]) * self.dt
+            X[1, k+1] = X[1, k] + X[2, k] * np.sin(X[3, k]) * self.dt
+            X[2, k+1] = X[2, k] + U[0, k] * self.dt
+            X[3, k+1] = X[3, k] + U[1, k] * self.dt
 
-        sol = opti.solve()
+        return X, U
 
-        # print(sol.value(X))
-        # print(sol.value(U))
-        # print(opti.debug.value(X))        
-        return sol.value(X), sol.value(U)
 
 # Open Loop Test
 if __name__ == "__main__":
-    X_0 = np.array([0, 2, 1, 0]).T
-    X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
+    X_0 = np.array([0, 2, 10, np.pi/4]).T
+    X_ego_obsrvd = np.array([0, 0, 4, np.pi/6]).T
 
     AIAgent = Competitor1()
-    X, U = AIAgent.MPCOpt(X_0, 5, 5, X_ego_obsrvd)    
-    # print(X)
+
+    X, U = AIAgent.MPCOpt(X_0, X_ego_obsrvd, 5, 5)    
+    print(X)
     # print(U)
     xego, yego = AIAgent.const_vel_model(X_ego_obsrvd)
     

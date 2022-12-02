@@ -29,7 +29,7 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     %% ACADO directory
     % Example:
     % { Source location/ } acado-stable/external_packages/qpoases
-    srcAcado = 'F:/Uni_PhD_Research_Offline/';
+    srcAcado = '/home/ACADOtoolkit/';
 
     %% System Parameters - Kinematic Bicycle Model
     sysStates  = {'$s_x$', '$s_y$', '$\phi$', '$v$'}; % x-COM, y-COM, inertial heading, vehicle speed
@@ -40,8 +40,8 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     % Control Design' by J.Kong, M.Pfeiffer, G.Schildbach, F.Borrelli from UC
     % Berkeley.
     % It is based on Hyundai Azera (total wheelbase of 2.843m)
-    l_f = 1.105;    % [m] Distance from vehicle's CenterOfMass to front axle
-    l_r = 1.738;    % [m] Distance from vehicle's CenterOfMass to rear axle
+    l_f = 1.05;    % [m] Distance from vehicle's CenterOfMass to front axle
+    l_r = 1.75;    % [m] Distance from vehicle's CenterOfMass to rear axle
 
     %% Differential Equation
     DifferentialState sx sy phi v;
@@ -109,7 +109,7 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     
     if EXPORT
         mpc.exportCode( 'export_MPC' );
-        copyfile([srcAcado,'acado-stable/external_packages/qpoases'], 'export_MPC/qpoases', 'f');
+        copyfile('/home/cralab/ACADOtoolkit/external_packages/qpoases', 'export_MPC/qpoases', 'f');
         
         % Generating, compiling and exporting MPC controller as '.mexw64'
         cd export_MPC

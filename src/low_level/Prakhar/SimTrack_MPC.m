@@ -4,19 +4,6 @@ rosshutdown
 %% initialize rosnode
 rosinit
 
-
-%% load evaluation driving data
-load('/home/cralab/catkin_optimalProj/src/autonomous_racing/src/tracks/MPC_test_map.mat')
-x_map_list = map(:,1);
-y_map_list = map(:,2);
-map_length = length(map);
-phi_map_list = [atan2((y_map_list(2) - y_map_list(end)),(x_map_list(2) - x_map_list(end)))];
-for i = 2:length(x_map_list) - 1 
-    phi_map_list = [phi_map_list; atan2((y_map_list(i+1) - y_map_list(i-1)),(x_map_list(i+1) - x_map_list(i-1)))];
-end
-phi_map_list = [phi_map_list; atan2((y_map_list(1) - y_map_list(end-1)),(x_map_list(1) - x_map_list(end-1)))];
-map_step = 0.2;
-
 %% States
 
 x = 0; 
@@ -40,18 +27,12 @@ phi_ref_traj = [];
 theta_list = [];
 d_theta_list = [];
 
-%% Obstacle info
-xo1 = 0;
-yo1 = 100;
-wo1 = 4;
-ho1 = 5;
-
 %% Subscribe/Publish
 sub_traj = rossubscriber('traj', 'trajectory_msgs/JointTrajectory', 'DataFormat', 'struct'); 
 pub = rospublisher('odom','nav_msgs/Odometry');
 
 %% Initialize MPC
-predict_horizon = 10;
+predict_horizon = 10; % seconds
 delta_t_MPC = 0.5;
 eva_no = predict_horizon/delta_t_MPC + 1;
 
@@ -60,22 +41,20 @@ Xref = [0 0 0 v_ref];
 input.x = repmat(x0,eva_no,1);
 Xref = repmat(Xref,eva_no-1,1);
 
-z = [.1];
+z = [0];
 input.z = repmat(z,eva_no-1,1);
 Zref = repmat(z,eva_no-1,1);
 
 Uref = zeros(eva_no-1,2);
 input.u = Uref;
 
-od = [xo1, yo1, 0, 0];
-% input.od = repmat(od,eva_no,1);
-input.y = [Xref(1:eva_no-1,:) Zref];
+input.y = [Xref(1:eva_no-1,:) Uref];
 input.yN = Xref(eva_no-1,:);
 
 % Weights: 
-input.W = diag([5 5 1 1 0]);
+input.W = diag([5 5 0 0 0 0]);
 % Terminal Weights:
-input.WN = diag([2 2 10]);
+input.WN = diag([5 5 0 0]);
 
 error_combined_list = [];
 
@@ -113,69 +92,40 @@ myVideo.FrameRate = 20;
 %% Simulation
 delta_t = 0.1;
 current_t = 0;
-% r = rateControl(1/delta_t);
-% reset(r);
-
-coordinates = 2;
-              % case 1 Coordinates in world frame    
-              % case 2 Coordinates in vehicle frame
-              
-[near_index1_pre,near_dis1_pre] = dsearchn(map, [x,y]);
 
 while(current_t <= 2000)   
     tic
-
-    %% find yourslef
-    [near_index1,near_dis1] = dsearchn(map, [x,y]);
-    
-    if (near_index1_pre > near_index1 && near_index1_pre - near_index1 < 10) ||...
-        (near_index1 - near_index1_pre > 300)
-        near_index1 = near_index1_pre;
-    end
-    near_index1_pre = near_index1;
-    
-    %% Create raw reference points using future vehicle speed and map
-    trans_matrix = [cos(phi), sin(phi); -sin(phi), cos(phi)];
     
     %% wait for next high level command
-    disp("here")
     traj1 = receive(sub_traj,40);
     
     %% Consume the subscriber data
     x_ilqrRef = GetTraj(traj1);
-    xy_ref_traj_vehFrame = x_ilqrRef(1:2,:)'
-    phi_ref_traj_vehFrame = x_ilqrRef(3,:)';
-    v_ref_vehFrame = x_ilqrRef(4,:)'
-    disp("here2")
+    xy_ref_traj = x_ilqrRef(1:2,:)';
+    phi_ref_traj = x_ilqrRef(3,:)';
+    v_ref_traj = x_ilqrRef(4,:)';
    
-    %% Create reference to pass to mpc just from high level info
+    %% Update MPC inputs   
+    Xref = [xy_ref_traj, phi_ref_traj, v_ref_traj];
+    x0 = [x y phi v];
 
-    %% Update MPC inputs
-    switch coordinates
-        case 1 % Coordinates in world frame
-            Xref = [xy_ref_traj, phi_ref_traj, ones(eva_no,1) * 0, ones(eva_no,1) * v_ref, ones(eva_no,1) * 0, ones(eva_no,1) * 0];
-            x0 = [x y phi v];
-        case 2 % Coordinates in vehicle frame
-%             Xref = [xy_ref_traj_vehFrame, phi_ref_traj_vehFrame, ones(eva_no,1) * v_ref];
-            Xref = [xy_ref_traj_vehFrame, phi_ref_traj_vehFrame, v_ref_vehFrame];
-            x0 = [x y phi v];
-    end 
-    
     input.x = repmat(x0,eva_no,1);
-    input.y = [Xref(1:eva_no-1,:) Zref];
-    input.yN = Xref(eva_no,1:3);
+    input.y = [Xref(1:eva_no-1,:) Uref];
+    input.yN = Xref(eva_no-1,:);
     input.x0 = x0;
     
     output = tracking_MPC(input);
     output.info.objValue;
     t1 = toc;
     
-    switch coordinates
-        case 1 % Coordinates in world frame
-            xy_predict = output.x(:,1:2);
-        case 2 % Coordinates in vehicle frame
-            xy_predict = ([cos(-phi), sin(-phi); -sin(-phi), cos(-phi)] * [output.x(:,1)';output.x(:,2)'] + [x;y])';
-    end
+%     switch coordinates
+%         case 1 % Coordinates in world frame
+%             xy_predict = output.x(:,1:2);
+%         case 2 % Coordinates in vehicle frame
+%             xy_predict = ([cos(-phi), sin(-phi); -sin(-phi), cos(-phi)] * [output.x(:,1)';output.x(:,2)'] + [x;y])';
+%     end
+    
+    xy_predict = output.x(:,1:2);
     
     %% Update vehicle states
     theta = output.u(1, 1);
@@ -191,7 +141,6 @@ while(current_t <= 2000)
     ay = v^2/L*tan(theta);
 
     [x y phi v theta ax beta]
-    output.u
 
     x_list = [x_list; x];
     v_list = [v_list; v];
@@ -200,7 +149,6 @@ while(current_t <= 2000)
     theta_list = [theta_list; theta];
     ax_list = [ax_list;  ax];
     ay_list = [ay_list; ay];
-%     d_theta_list = [d_theta_list; d_theta];
 
     %% Publish to high level
     msg =  rosmessage(pub);
@@ -215,7 +163,7 @@ while(current_t <= 2000)
     addpoints(h1, xy_predict(:,1),xy_predict(:,2));
     addpoints(h2,x,y);
 %     set(s1,'XData',xy_ref_traj(:,1),'YData',xy_ref_traj(:,2));
-    set(s1,'XData',xy_ref_traj_vehFrame(:,1),'YData',xy_ref_traj_vehFrame(:,2));
+    set(s1,'XData',xy_ref_traj(:,1),'YData',xy_ref_traj(:,2));
 
     set(s2,'XData',xy_predict(:,1),'YData',xy_predict(:,2)) ;
     dx = cos(phi) * L;
@@ -262,9 +210,4 @@ function x = GetTraj(JointTrajectory)
 %     v = v(2:end);
     x = [poses;v];
     % x is [x,y,phi,v] horizon sequence
-end
-
-function trajCallback(msg)
-    global traj_recvd
-    traj_recvd = 1;
 end

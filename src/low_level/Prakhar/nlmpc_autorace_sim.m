@@ -137,12 +137,6 @@ while time(end) < Tf
         pTrack = phi_ref_traj;
         vTrack = v_ref_traj;
 
-        % Static collision avoidance (current position repeated over the horizon)
-%         xy_AI_traj = __; % <<<<< pass data of agent's current position from ROS to here
-        xObs = xy_AI_traj(1).*ones(length(xTrack),1);
-        yObs = xy_AI_traj(2).*ones(size(xObs));
-        dSafe = d_safe.*ones(size(xObs));
-
         % Dynamic collision avoidance (predicted trajectory)
 %         xy_AI_predict_traj = __; % <<<<< pass data of agent's predicted position from ROS to here
 %         xObs = xy_AI_predict_traj(:,1); % Column vector, Obstacle x-position
@@ -166,6 +160,14 @@ while time(end) < Tf
         get_new_segment = 0;
         
         ref_traj_list = [ref_traj_list; xy_ref_traj];
+    end
+
+    if ROS_ENABLE == 1          % Required to receive information from ROS every time step
+        % Static collision avoidance (current position repeated over the horizon)
+%         xy_AI_traj = __; % <<<<< pass data of agent's current position from ROS to here
+        xObs = xy_AI_traj(1).*ones(length(xTrack),1);
+        yObs = xy_AI_traj(2).*ones(size(xObs));
+        dSafe = d_safe.*ones(size(xObs));
     end
     
     % Time Varying Reference Update

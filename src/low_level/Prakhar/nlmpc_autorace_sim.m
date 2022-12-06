@@ -71,13 +71,13 @@ d_safe = 0.0;
 
 % xObs = 1.75;    yObs = 1.0;
 % xObs = 2.0 ;    yObs = 1.0;
-% xObs = 2.5 ;    yObs = 1.0;
+xObs = 2.5 ;    yObs = 1.0;
 % xObs = 3.0 ;    yObs = 1.0;
 % xObs = 3.5 ;    yObs = 1.0;
-xObs = 4.0 ;    yObs = 1.0;
+% xObs = 4.0 ;    yObs = 1.0;
 % xObs = 2.0 ;    yObs = 0.5;
 
-xObs = xObs.*ones(size(xTrack));    xObs = linspace(2,3,length(xTrack))';
+xObs = xObs.*ones(size(xTrack));    %xObs = linspace(2,3,length(xTrack))';
 yObs = yObs.*ones(size(xTrack));
 dSafe = d_safe.*ones(size(xObs));
 
@@ -137,10 +137,29 @@ while time(end) < Tf
         pTrack = phi_ref_traj;
         vTrack = v_ref_traj;
 
-%         xy_AI_predict_traj = __;      % <<<<< pass data from ROS to here
-        xObs = xy_AI_predict_traj(:,1); % Column vector, Obstacle x-position
-        yObs = xy_AI_predict_traj(:,2); % Column vector, Obstacle y-position
+        % Static collision avoidance (current position repeated over the horizon)
+%         xy_AI_traj = __; % <<<<< pass data of agent's current position from ROS to here
+        xObs = xy_AI_traj(1).*ones(length(xTrack),1);
+        yObs = xy_AI_traj(2).*ones(size(xObs));
         dSafe = d_safe.*ones(size(xObs));
+
+        % Dynamic collision avoidance (predicted trajectory)
+%         xy_AI_predict_traj = __; % <<<<< pass data of agent's predicted position from ROS to here
+%         xObs = xy_AI_predict_traj(:,1); % Column vector, Obstacle x-position
+%         yObs = xy_AI_predict_traj(:,2); % Column vector, Obstacle y-position
+%         dSafe = d_safe.*ones(size(xObs));
+
+        % Dynamic collision avoidance (current position @ the time the planner is called + predicted trajectory)
+%         xy_AI_traj = __; % <<<<< pass data of agent's current position from ROS to here
+%         xy_AI_predict_traj = __; % <<<<< pass data of agent's predicted position from ROS to here
+%         xObs = [xy_AI_traj(1); xy_AI_predict_traj(:,1)]; % Column vector, Obstacle x-position
+%         yObs = [xy_AI_traj(2); xy_AI_predict_traj(:,2)]; % Column vector, Obstacle y-position
+%         dSafe = d_safe.*ones(size(xObs));
+
+        % Dynamic collision avoidance (current position @ updated every timestep + predicted trajectory once planner is called at a lower frequency)
+%         xy_AI_traj = __; % <<<<< pass data of agent's current position from ROS to here
+%         xy_AI_predict_traj = __; % <<<<< pass data of agent's predicted position from ROS to here
+%         ......
 
         msg.Pose.Pose.Position.Z = get_new_segment;
         % wait to get new traj till segment end is reached

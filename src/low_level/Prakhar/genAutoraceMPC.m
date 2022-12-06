@@ -66,6 +66,7 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     n_XD = length(hN);
     n_U = length(controls);
 
+    % Constraint - Collision avoidance
     d_ego_obstacle = (sx-ox).^2 + (sy-oy).^2;
     d_safe = d_safe.^2;
     

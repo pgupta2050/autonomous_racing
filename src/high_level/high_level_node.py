@@ -80,19 +80,19 @@ class Highlevel():
         # X_0 = np.array([0, 1, 1, 0]).T
         # X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
         X_ego_obsrvd = np.array([0, -2, 0, 0]).T
-        xgoal = 10
-        ygoal = 5
+        # xgoal = 10
+        # ygoal = 5
         self.goalList = [[10,20,30,40,50],
                          [5,10,20,30,40]]
         # self.goalList = [[0 ,3.0100, 11.6900, 25.0000, 41.3100, 58.6800, 75.0000, 88.3000, 96.9800,100.0000],
         #                  [0, 17.1000, 32.1300, 43.3000, 49.2400, 49.2400, 43.3000, 32.1300, 17.1000, 0]]
         # self.goalList = [[0, 17.1010, 32.1394,   43.3013,   49.2404,   49.2404,   43.3013,   32.1394,   17.1010,         0],
                         # [0, -3.0154,  -11.6978,  -25.0000,  -41.3176,  -58.6824,  -75.0000,  -88.3022,  -96.9846, -100.0000]]
-        self.goalList = [[0 , 8.2297, 16.2350, 23.7974, 30.7106, 36.7862, 41.8583, 45.7887, 48.4700, 49.8292, 49.8292, 48.4700, 45.7887, 41.8583, 36.7862, 30.7106, 23.7974, 16.2350, 8.2297, 0, -8],
-                        [0, -0.6819, -2.7091, -6.0263,-10.5430,-16.1359,-22.6526,-29.9152,-37.7257,-45.8710,-54.1290,-62.2743,-70.0848,-77.3474,-83.8641,-89.4570,-93.9737,-97.2909,-99.3181, -100.0000, -100]]
+        self.goalList = [[8.2297, 16.2350, 23.7974, 30.7106, 36.7862, 41.8583, 45.7887, 48.4700, 49.8292, 49.8292, 48.4700, 45.7887, 41.8583, 36.7862, 30.7106, 23.7974, 16.2350, 8.2297, 0, -8],
+                        [-0.6819, -2.7091, -6.0263,-10.5430,-16.1359,-22.6526,-29.9152,-37.7257,-45.8710,-54.1290,-62.2743,-70.0848,-77.3474,-83.8641,-89.4570,-93.9737,-97.2909,-99.3181, -100.0000, -100]]
         # self.X_0 = X_0
-        self.xgoal = xgoal
-        self.ygoal = ygoal
+        # self.xgoal = xgoal
+        # self.ygoal = ygoal
         self.X_ego_obsrvd = X_ego_obsrvd
 
         self.egotraj = JointTrajectory()
@@ -198,7 +198,7 @@ class Highlevel():
             rospy.loginfo("ilqr call+comutation for " + str(duration.to_sec()) + " secs")
         
             pointsList = []
-            # xsol = 12x20
+            # xsol = 12xN
             # publish only the 4 ego states over the horizon.
             for i in range(0,self.HORIZON+1):
                 p = JointTrajectoryPoint()
@@ -211,7 +211,7 @@ class Highlevel():
             self.egotraj.points = pointsList
             self.traj_publisher.publish(self.egotraj)
         
-            np.savetxt("comptraj.txt",self.compTraj)
+            # np.savetxt("comptraj.txt",self.compTraj)
 
             self.solve_ilqr = 0 # reset the flag
 

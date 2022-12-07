@@ -12,6 +12,7 @@ if ROS_ENABLE == 1
     % Subscribe/Publish
     sub_traj = rossubscriber('traj','trajectory_msgs/JointTrajectory','DataFormat','struct'); 
     pub = rospublisher('odom','nav_msgs/Odometry');
+    sub_compOdom = rossubscriber('odom_comp1','nav_msgs/Odometry','DataFormat','struct');
 end
 
 %% Generate MPC using ACADO
@@ -35,31 +36,10 @@ n_U = m;
 
 % Map of track
 R = 50;                                         % Track radius
-[xMap,yMap] = genCircularRef(R,[R,0],50); % Circular track
+[xMap,yMap] = genCircularRef(R,[R,0],1000); % Circular track
 trackMap = [xMap,yMap];
 load("waypoints_R=50_n=10_90deg.mat")
-trackwidth = 10;
-
-% R = 50;     % Track radius
-% [xTrack,yTrack] = genTrackRef(R,1000);      % Circular track
-% xTrack(1) = []; yTrack(1) = [];
-% xTrack1 = xTrack; yTrack1 = yTrack;
-% 
-% mapHighLevel = readcell('high_level_traj.txt'); % sx, sy, v, phi
-% mapHighLevel = cell2mat(mapHighLevel);
-% idxMapInit = 1;
-% xTrack = mapHighLevel(idxMapInit:end,1);
-% yTrack = mapHighLevel(idxMapInit:end,2);
-% vTrack = mapHighLevel(idxMapInit:end,3);
-% pTrack = mapHighLevel(idxMapInit:end,4);
-
-% xTrack = mapTrack(:,1);                     % Recorded map
-% yTrack = mapTrack(:,2)-mapTrack(1,2);
-
-% [xTrack,yTrack] = genSineCurve();           % Sine curve
-
-% xTrack = ones(1000,1);                      % Straight line
-% yTrack = 1.*linspace(1,1000,1000)';
+trackwidth = 4;
 
 Tf = 900*.1;
 % X0 = [xTrack(1), -1, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
@@ -83,8 +63,8 @@ input.W = diag([10,10,0,2,1,0.1]); % sx, sy, phi, v, delta_f, a
 input.WN = diag([1,1,0,1]);
 
 % pg_tracking_mpc
-% input.W = diag([10,10,0,2,2,0.1]); % sx, sy, phi, v, delta_f, a
-% input.WN = diag([5,5,2,1]);
+input.W = diag([10,10,0,2,2,0.1]); % sx, sy, phi, v, delta_f, a
+input.WN = diag([5,5,2,1]);
 
 %% Simulation - Running
 disp('------------------------------------------------------------------');
@@ -111,7 +91,10 @@ send(pub, msg);
 % set flag to begin loop
 get_new_segment = 1;
 
+% list to store states/traj
 ref_traj_list = [];
+compStates = [];
+cMapList = [];
 
 % visualize_learn;
 while time(end) < Tf
@@ -132,8 +115,17 @@ while time(end) < Tf
         % wait to get new traj till segment end is reached
         get_new_segment = 0;
         
-        ref_traj_list = [ref_traj_list; xy_ref_traj];
-               
+        ref_traj_list = [ref_traj_list; xy_ref_traj];          
+    end
+    
+    if ROS_ENABLE == 1   % Required to receive information from ROS every time step
+        % Static collision avoidance (current position repeated over the horizon)
+        compOdom = receive(sub_compOdom, 70);
+        compState = getOdom(compOdom);
+        compStates = [compStates; compState];
+%         xObs = compState(1).*ones(length(xTrack),1);
+%         yObs = compState(2).*ones(size(xObs));
+%         dSafe = d_safe.*ones(size(xObs));
     end
     
     % Time Varying Reference Update
@@ -153,9 +145,10 @@ while time(end) < Tf
         xcMap = [xcMap; trackMap(near_index,1)];
         ycMap = [ycMap; trackMap(near_index,2)];
     end 
+    cMapList = [cMapList; [xcMap, ycMap]];
     
     % pass the future map points and trackwidth
-    input.od = [xcMap,ycMap,trackwidth*ones(N+1,1)];
+    input.od = [xcMap,ycMap,trackwidth/2*ones(N+1,1)];
     
     % Solve NMPC OCP
     input.x0 = state_sim(end,:);
@@ -237,49 +230,6 @@ XSim(4,:) = 3.6.*XSim(4,:);
 USim = input_sim';
 USim(1,:) = rad2deg(USim(1,:));
 
-% State Trajectories
-% figure;
-% title('\bf State Trajectories','Interpreter','latex');
-% for i=1:n
-%     subplot(n,1,i);
-%     plot(tk,XSim(i,:)');
-%     if i==1, title(['$N($sec$) = ',num2str(N*Ts),'$'],'Interpreter','latex'); end
-%     if i==n, xlabel('$t$','Interpreter','latex'); end
-%     ylabel(sysStates(i),'Interpreter','latex');
-%     grid on;
-% end
-
-% Input Trajectories
-% figure;
-% title('\bf Input Trajectories','Interpreter','latex');
-% for i=1:m
-%     subplot(m,1,i);
-%     plot(tk(1:end-1),USim(i,:)');
-%     if i==1, title(['$N($sec$) = ',num2str(N*Ts),'$'],'Interpreter','latex'); end
-%     if i==m, xlabel('$t$','Interpreter','latex'); end
-%     ylabel(sysInputs(i),'Interpreter','latex');
-%     grid on;
-% end
-
-% Vehicle Trajectory Plot with Input Plots
-% figure;
-% subplot(2,2,[1,3]); hold on; grid on; axis equal; axis padded;
-% plot(xTrack,yTrack,'-.');
-% plot(XSim(1,:)',XSim(2,:)');
-% plot(XSim(1,1), XSim(2,1),'ko');
-% plot(Xref(:,1), Xref(:,2),'ro');
-% title('\bf Vehicle Trajectory','Interpreter','latex');
-% xlabel(sysStates(1),'Interpreter','latex');
-% ylabel(sysStates(2),'Interpreter','latex');
-% for i=1:m
-%     subplot(2,2,i*2);
-%     plot(tk(1:end-1),USim(i,:)');
-%     if i==1, title(['$N($sec$) = ',num2str(N*Ts),'$'],'Interpreter','latex'); end
-%     if i==m, xlabel('$t$','Interpreter','latex'); end
-%     ylabel(sysInputs(i),'Interpreter','latex');
-%     grid on;
-% end
-
 % Vehicle Trajectory Plot
 wLine = 1;
 figure; hold on; grid on; axis equal; axis padded;
@@ -302,61 +252,26 @@ txtStr1 = {['$W\matrix{ s_x & ',num2str(input.W(1,1)),'&',num2str(input.WN(1,1))
              ' \cr \delta_f & ',num2str(input.W(5,5)), ...
                     ' \cr a & ',num2str(input.W(6,6)),'}$']};
 annotation("textbox",txtDim1,'String',txtStr1,'Interpreter','latex','FitBoxToText','on','BackgroundColor','white');
-% txtDim2 = [0.35, 0.75, 0.3, 0.1];
-% txtStr2 = {['$W_N\matrix{ s_x & ',num2str(input.WN(1,1)), ...
-%                     ' \cr s_y & ',num2str(input.WN(2,2)), ...
-%                    ' \cr \phi & ',num2str(input.WN(3,3)), ...
-%                       ' \cr v & ',num2str(input.WN(4,4)),'}$']};
-% annotation("textbox",txtDim2,'String',txtStr2,'Interpreter','latex','FitBoxToText','on','BackgroundColor','white');
 
-% Combination Plot
-% figure('Position',[230,240,1122,420]);
-% for i=1:n
-%     subplot(4,4,[i*4-3,i*4-3+1]);
-%     plot(tk,XSim(i,:)');
-%     if i==1, title(['$N($sec$) = ',num2str(N*Ts),'$'],'Interpreter','latex'); end
-%     if i==n, xlabel('$t$','Interpreter','latex'); end
-%     ylabel(sysStates(i),'Interpreter','latex');
-%     grid on;
-% end
-% 
-% subplot(4,4,[3,7,11,15]); hold on; grid on; axis equal; axis padded;
-% plot(xTrack,yTrack,'-.');
-% plot(XSim(1,:)',XSim(2,:)');
-% plot(XSim(1,1) ,XSim(2,1),'ko');
-% plot(Xref(:,1) ,Xref(:,2),'ro');
-% title('\bf Vehicle Trajectory','Interpreter','latex');
-% xlabel(sysStates(1),'Interpreter','latex');
-% ylabel(sysStates(2),'Interpreter','latex');
-% 
-% for i=1:m
-%     subplot(4,4,8*(i-1)+[4,8]);
-%     plot(tk(1:end-1),USim(i,:)');
-%     if i==1, title(['$N($sec$) = ',num2str(N*Ts),'$'],'Interpreter','latex'); end
-%     if i==m, xlabel('$t$','Interpreter','latex'); end
-%     ylabel(sysInputs(i),'Interpreter','latex');
-%     grid on;
-% end
 
+R = 50;                                         % Track radius
+[xTrack,yTrack] = genCircularRef(R,[R,0],1000); % Circular track
+load("waypoints_R=50_n=10_90deg.mat")
 
 figure(2)
 plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
 hold on
 grid on;
-plot(XSim(1,:)',XSim(2,:)','-*','LineWidth',wLine,'MarkerSize',3);
-% plot(comptraj4.e00, comptraj4.e1,'-+','LineWidth',wLine,'MarkerSize',3)
+plot(XSim(1,1:end)',XSim(2,1:end)','-*','LineWidth',wLine,'MarkerSize',3);
+plot(compStates(1:end,1), compStates(1:end,2),'-+','LineWidth',wLine,'MarkerSize',3)
 scatter(xWaypt, yWaypt)
-plot(xMap,yMap,'k--','LineWidth',wLine/2);
-legend("planned", "actual ego", "comp","trackpoints","Track")
-
-
-figure(5)
-plot(ref_traj_list(1:21,1),ref_traj_list(1:21,2),'b')
-hold on
-% plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
-plot(ref_traj_list(22:42,1),ref_traj_list(22:42,2))
-% plot(ref_traj_list(43:63,1),ref_traj_list(43:63,2),'*')
-legend("1","2","3","4")
+plot(xTrack,yTrack,'k--','LineWidth',wLine/2);
+% scatter(xMap,yMap,"+")
+% scatter(cMapList(:,1),cMapList(:,2),"*")
+legend("Planned Ego Trajectory", "Ego's Simulated Trajectory", "Competitor's Simulated Trajectory", "Track goalpoints", "Track")
+xlabel("X [m]")
+ylabel("Y [m]")
+title("Trajectory Plots")
 
 %% Helper functions
 function [ X, Y ] = genTrackRef( R, n )
@@ -368,17 +283,19 @@ function [ X, Y ] = genTrackRef( R, n )
 end
 
 function x = GetTraj(JointTrajectory)
-    poses = reshape([JointTrajectory.points(:).positions],[3,21]);
-%     poses = reshape(poses,[3,21])
-%     x = poses(1,2:end);
-%     y = poses(2,2:end);
-%     phi = poses(3,2:end);
+    poses = reshape([JointTrajectory.points(:).positions],[3,11]);
     v = [JointTrajectory.points(:).velocities];
-%     v = v(2:end);
     x = [poses;v];
     % x is [x,y,phi,v] horizon sequence
 end
 
+
+function x = getOdom(Odometry)
+    x = [Odometry.pose.pose.position.x, ...
+          Odometry.pose.pose.position.y, ...
+          Odometry.pose.pose.orientation.z, ...
+          Odometry.twist.twist.linear.x];
+end
 %% Helper function
 function [ X, Y ] = genCircularRef( R, c, n )
 

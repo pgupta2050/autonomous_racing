@@ -12,6 +12,7 @@ if ROS_ENABLE == 1
     % Subscribe/Publish
     sub_traj = rossubscriber('traj','trajectory_msgs/JointTrajectory','DataFormat','struct'); 
     pub = rospublisher('odom','nav_msgs/Odometry');
+    sub_compOdom = rossubscriber('odom_comp1','nav_msgs/Odometry','DataFormat','struct');
 end
 
 %% Generate MPC using ACADO
@@ -20,7 +21,7 @@ EXPORT = 0; % Before running the function 'genAutoraceMPC', change the
             % respective computer.
 
 Ts = 0.1;   % Sampling time
-N = 5;     % Prediction horizon [steps]
+N = 5;      % Prediction horizon [steps]
 
 [ carStates, carInputs, carOde, carParams ] = genAutoraceMPC( N, Ts, EXPORT );
 
@@ -57,8 +58,18 @@ n_U = m;
 Tf = 900*.1;
 % X0 = [xTrack(1), -1, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
 % X0 = [50,         0, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
-X0 = [0, 0, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
+X0 = [0, -2, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
 % X0 = [4, 2, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
+
+d_safe = 0.5;
+
+% xObs = 1.75;    yObs = 1.0;
+% xObs = 2.0 ;    yObs = 1.0;
+xObs = 2.5 ;      yObs = 1.0;
+% xObs = 3.0 ;    yObs = 1.0;
+% xObs = 3.5 ;    yObs = 1.0;
+% xObs = 4.0 ;    yObs = 1.0;
+% xObs = 2.0 ;    yObs = 0.5;
 
 input.od = [];
 
@@ -106,11 +117,11 @@ send(pub, msg);
 get_new_segment = 1;
 
 ref_traj_list = [];
+compStates = [];
 
 % visualize_learn;
 while time(end) < Tf
 %     tic
-
     if ROS_ENABLE == 1 && get_new_segment == 1 
         % Get the ref for this step and wait for next high level command
         traj1 = receive(sub_traj,70);
@@ -130,6 +141,20 @@ while time(end) < Tf
                
     end
     
+    if ROS_ENABLE == 1   % Required to receive information from ROS every time step
+        % Static collision avoidance (current position repeated over the horizon)
+        compOdom = receive(sub_compOdom, 70);
+        compState = getOdom(compOdom);
+        compStates = [compStates; compState];
+        xObs = compState(1).*ones(length(xTrack),1);
+        yObs = compState(2).*ones(size(xObs));
+        dSafe = d_safe.*ones(size(xObs));
+    end
+    
+    % Obstacle(s)
+    obstacle = [xObs(k:k+N),yObs(k:k+N),dSafe(k:k+N)];
+    input.od = obstacle;
+    
     % Time Varying Reference Update
     Xref =    [xTrack(k:k+N-1),yTrack(k:k+N-1),1.*phi_ref_traj(k:k+N-1),1.*v_ref_traj(k:k+N-1)]; %repmat(Xref,N,  1);
     input.x = [xTrack(k:k+N),  yTrack(k:k+N),  1.*phi_ref_traj(k:k+N),  1.*v_ref_traj(k:k+N)];   %repmat(Xref,N+1,1);
@@ -140,6 +165,7 @@ while time(end) < Tf
     % Solve NMPC OCP
     input.x0 = state_sim(end,:);
     output = autoraceMPCstep(input);
+%     output = tracking_MPC(input);
 
     % Save the MPC Step
     INFO_MPC = [INFO_MPC; output.info];
@@ -316,7 +342,7 @@ annotation("textbox",txtDim1,'String',txtStr1,'Interpreter','latex','FitBoxToTex
 %     ylabel(sysInputs(i),'Interpreter','latex');
 %     grid on;
 % end
-%%
+
 R = 50;                                         % Track radius
 [xTrack,yTrack] = genCircularRef(R,[R,0],1000); % Circular track
 load("waypoints_R=50_n=10_90deg.mat")
@@ -325,20 +351,22 @@ figure(2)
 plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
 hold on
 grid on;
-plot(XSim(1,1:155)',XSim(2,1:155)','-*','LineWidth',wLine,'MarkerSize',3);
-plot(comptraj4.e00, comptraj4.e1,'-+','LineWidth',wLine,'MarkerSize',3)
+plot(XSim(1,1:end)',XSim(2,1:end)','-*','LineWidth',wLine,'MarkerSize',3);
+plot(compStates(1:end,1), compStates(1:end,2),'-+','LineWidth',wLine,'MarkerSize',3)
 scatter(xWaypt, yWaypt)
 plot(xTrack,yTrack,'k--','LineWidth',wLine/2);
-legend("planned", "actual ego", "comp","trackpoints","Track")
-
-
-figure(5)
-plot(ref_traj_list(1:21,1),ref_traj_list(1:21,2),'b')
-hold on
-% plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
-plot(ref_traj_list(22:42,1),ref_traj_list(22:42,2))
-% plot(ref_traj_list(43:63,1),ref_traj_list(43:63,2),'*')
-legend("1","2","3","4")
+legend("Planned Ego Trajectory", "Ego's Simulated Trajectory", "Competitor's Simulated Trajectory", "Track goalpoints", "Track")
+xlabel("X [m]")
+ylabel("Y [m]")
+title("Trajectory Plots")
+% 
+% figure(5)
+% plot(ref_traj_list(1:21,1),ref_traj_list(1:21,2),'b')
+% hold on
+% % plot(ref_traj_list(:,1),ref_traj_list(:,2),'--*','LineWidth',wLine,'MarkerSize',3);
+% plot(ref_traj_list(22:42,1),ref_traj_list(22:42,2))
+% % plot(ref_traj_list(43:63,1),ref_traj_list(43:63,2),'*')
+% legend("1","2","3","4")
 
 %% Helper functions
 function [ X, Y ] = genTrackRef( R, n )
@@ -350,7 +378,7 @@ function [ X, Y ] = genTrackRef( R, n )
 end
 
 function x = GetTraj(JointTrajectory)
-    poses = reshape([JointTrajectory.points(:).positions],[3,21]);
+    poses = reshape([JointTrajectory.points(:).positions],[3,11]);
 %     poses = reshape(poses,[3,21])
 %     x = poses(1,2:end);
 %     y = poses(2,2:end);
@@ -359,6 +387,14 @@ function x = GetTraj(JointTrajectory)
 %     v = v(2:end);
     x = [poses;v];
     % x is [x,y,phi,v] horizon sequence
+end
+
+
+function x = getOdom(Odometry)
+    x = [Odometry.pose.pose.position.x, ...
+          Odometry.pose.pose.position.y, ...
+          Odometry.pose.pose.orientation.z, ...
+          Odometry.twist.twist.linear.x];
 end
 
 %% Helper function

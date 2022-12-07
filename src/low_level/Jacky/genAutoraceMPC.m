@@ -40,8 +40,8 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     % Control Design' by J.Kong, M.Pfeiffer, G.Schildbach, F.Borrelli from UC
     % Berkeley.
     % It is based on Hyundai Azera (total wheelbase of 2.843m)
-    l_f = 1.105;    % [m] Distance from vehicle's CenterOfMass to front axle
-    l_r = 1.738;    % [m] Distance from vehicle's CenterOfMass to rear axle
+    l_f = 1.75;    % [m] Distance from vehicle's CenterOfMass to front axle
+    l_r = 1.0;    % [m] Distance from vehicle's CenterOfMass to rear axle
 
     %% Differential Equation
     DifferentialState sx sy phi v;

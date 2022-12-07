@@ -1,6 +1,8 @@
 close all; clc; clear
 rosshutdown
 
+load('/home/cralab/catkin_optimalProj/src/autonomous_racing/src/tracks/test_segment.mat')
+
 %% initialize rosnode
 rosinit
 
@@ -23,7 +25,7 @@ v_list = [];
 ax_list = [];
 ay_list = [];
 phi_list = [];
-phi_ref_traj = [];
+phi_ref_traj = []; 
 theta_list = [];
 d_theta_list = [];
 
@@ -36,11 +38,14 @@ predict_horizon = 10; % seconds
 delta_t_MPC = 0.5;
 eva_no = predict_horizon/delta_t_MPC + 1;
 
+% init X
 x0 = [0, 0, 0, 0];
-Xref = [0 0 0 v_ref];
 input.x = repmat(x0,eva_no,1);
+
+Xref = [0 0 0 0];
 Xref = repmat(Xref,eva_no-1,1);
 
+% init algebraic state
 z = [0];
 input.z = repmat(z,eva_no-1,1);
 Zref = repmat(z,eva_no-1,1);
@@ -57,8 +62,6 @@ input.W = diag([5 5 0 0 0 0]);
 input.WN = diag([5 5 0 0]);
 
 error_combined_list = [];
-
-v_ref_vehFrame = ones(eva_no,1) * v_ref;
 
 %% Visualization
 figure(1)
@@ -90,6 +93,24 @@ myVideo.FrameRate = 20;
 % writeVideo(myVideo, frame);
 
 %% Simulation
+
+% Let high level know controller is alove
+get_new_segment = 1;
+
+msg = rosmessage(pub);
+msg.Pose.Pose.Position.X = x0(1);
+msg.Pose.Pose.Position.Y = x0(2);
+msg.Pose.Pose.Orientation.Z = x0(3);
+msg.Twist.Twist.Linear.X = x0(4);
+msg.Pose.Pose.Position.Z = get_new_segment;
+send(pub, msg);
+
+% set flag to begin loop
+get_new_segment = 1;
+
+ref_traj_list = [];
+
+
 delta_t = 0.1;
 current_t = 0;
 
@@ -104,26 +125,29 @@ while(current_t <= 2000)
     xy_ref_traj = x_ilqrRef(1:2,:)';
     phi_ref_traj = x_ilqrRef(3,:)';
     v_ref_traj = x_ilqrRef(4,:)';
+    xTrack = xy_ref_traj(:,1);
+    yTrack = xy_ref_traj(:,2);
+    msg.Pose.Pose.Position.Z = get_new_segment;
+    % wait to get new traj till segment end is reached
+    get_new_segment = 0;
+
+    ref_traj_list = [ref_traj_list; xy_ref_traj];
    
     %% Update MPC inputs   
     Xref = [xy_ref_traj, phi_ref_traj, v_ref_traj];
+    
     x0 = [x y phi v];
-
+    input.x0 = x0;
+    
     input.x = repmat(x0,eva_no,1);
+    
     input.y = [Xref(1:eva_no-1,:) Uref];
     input.yN = Xref(eva_no-1,:);
-    input.x0 = x0;
+    
     
     output = tracking_MPC(input);
     output.info.objValue;
     t1 = toc;
-    
-%     switch coordinates
-%         case 1 % Coordinates in world frame
-%             xy_predict = output.x(:,1:2);
-%         case 2 % Coordinates in vehicle frame
-%             xy_predict = ([cos(-phi), sin(-phi); -sin(-phi), cos(-phi)] * [output.x(:,1)';output.x(:,2)'] + [x;y])';
-%     end
     
     xy_predict = output.x(:,1:2);
     
@@ -151,7 +175,7 @@ while(current_t <= 2000)
     ay_list = [ay_list; ay];
 
     %% Publish to high level
-    msg =  rosmessage(pub);
+    msg = rosmessage(pub);
     msg.Pose.Pose.Position.X = x;
     msg.Pose.Pose.Position.Y = y;
     msg.Twist.Twist.Linear.X = v;
@@ -202,12 +226,6 @@ end
 
 function x = GetTraj(JointTrajectory)
     poses = reshape([JointTrajectory.points(:).positions],[3,21]);
-%     poses = reshape(poses,[3,21])
-%     x = poses(1,2:end);
-%     y = poses(2,2:end);
-%     phi = poses(3,2:end);
     v = [JointTrajectory.points(:).velocities];
-%     v = v(2:end);
     x = [poses;v];
-    % x is [x,y,phi,v] horizon sequence
 end

@@ -6,12 +6,12 @@ clear global;
 clc;
 
 %% Generate MPC using ACADO
-EXPORT = 1; % Before running the function 'genAutoraceMPC', change the
+EXPORT = 0; % Before running the function 'genAutoraceMPC', change the
             % variable 'srcAcado' to the path of the installed ACADO in the
             % respective computer.
 
 Ts = 0.5;   % Sampling time
-N = 10;     % Prediction horizon [steps]
+N = 5;     % Prediction horizon [steps]
 
 [ carStates, carInputs, carOde, carParams ] = genAutoraceMPC( N, Ts, EXPORT );
 
@@ -56,7 +56,8 @@ input.y = [Xref(1:N,:), Uref];
 input.yN = Xref(N,:);
 
 input.W = diag([10,10,0.5,0,10,0.5]); % sx, sy, phi, v, delta_f, a
-input.WN = diag([1,1,0.1,0]);
+input.WN = diag([1,1,0.4,0]);
+
 % input.W = diag([5,5,1,1,2,0.5]); % sx, sy, phi, v, delta_f, a % recorded track gain
 % input.WN = diag([1,1,1,0]);
 
@@ -85,13 +86,13 @@ while time(end) < Tf
     % Solve NMPC OCP
     input.x0 = state_sim(end,:);
     output = autoraceMPCstep(input);
-    
     % Save the MPC Step
     INFO_MPC = [INFO_MPC; output.info];
     KKT_MPC = [KKT_MPC; output.info.kktValue];
     controls_MPC = [controls_MPC; output.u(1,:)];
     input.x = output.x;
     input.u = output.u;
+    
     
     % Simulate System
     sim_input.x = state_sim(end,:).';

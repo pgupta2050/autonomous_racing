@@ -47,7 +47,9 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     DifferentialState sx sy phi v;
     % AlgebraicState beta
     Control delta_f a;
-    % OnlineData ox oy    % ox:=x-pos of opponent vehicle; oy:=y-pos of opponent vehicle
+    OnlineData ox oy d_safe;    % ox     := x-pos of competitor;
+                                % oy     := y-pos of competitor;
+                                % d_safe := safety distance
     
     beta = atan( l_r/(l_f+l_r)*tan(delta_f) );
     
@@ -63,6 +65,9 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     
     n_XD = length(hN);
     n_U = length(controls);
+
+    d_ego_obstacle = (sx-ox).^2 + (sy-oy).^2;
+    d_safe = d_safe.^2;
     
     %% MPC Export - Controller
     acadoSet('problemname', 'autorace');
@@ -82,7 +87,7 @@ function [ sysStates, sysInputs, sysOde, sysParams ] = genAutoraceMPC( N, Ts, EX
     % ocp.minimizeLSQLinearTerms( Slx, Slu );
     
     % Constraint - Collision avoidance
-    % norm( (s_x,s_y)-(o_x,o_y) ,2) >= eps, where eps>=0
+    ocp.subjectTo( d_ego_obstacle - d_safe >= 0 );   % where d_safe>=0
     
     % Constraint - Track
     % (s_x,s_y) < trackR

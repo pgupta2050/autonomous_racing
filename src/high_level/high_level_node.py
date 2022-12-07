@@ -22,21 +22,21 @@ class Highlevel():
         loop_rate = 10
         self.rate = rospy.Rate(loop_rate)
         self.egoPose_sub = rospy.Subscriber('/odom', Odometry, self.odomCallback, queue_size  = 15)
-        self.comp1Pose_sub = rospy.Subscriber('/odom_Comp1', Odometry, self.comp1PosCallback, queue_size  = 10)
+        self.comp1odom_pub = rospy.Publisher('/odom_comp1', Odometry, queue_size  = 10)
         self.traj_publisher = rospy.Publisher('/traj', JointTrajectory, queue_size=2)   
-        self.timer = rospy.Timer(rospy.Duration(.1,0), self.timerCallback) #timer for every second
+        self.timer = rospy.Timer(rospy.Duration(.1,0), self.timerCallback) # timer for every second
         
         DT = .1
-        self.HORIZON = 20
+        self.HORIZON = 10
         DSAFE = .5
 
         # Initial states
         x1_0 = 0
-        y1_0 = 0
+        y1_0 = -2
         v1_0 = 2
         theta1_0 = 0
         x2_0 = 0
-        y2_0 = 0
+        y2_0 = 2
         v2_0 = 0
         theta2_0 = 0
         # Initial augemnted control-states
@@ -71,7 +71,7 @@ class Highlevel():
 
         self.compAgent1 = aiagent.Competitor1()
         self.compx = 0
-        self.compy = 3
+        self.compy = 2
         self.compv = 0
         self.comptheta = 0
         self.compa = 0
@@ -79,24 +79,26 @@ class Highlevel():
 
         # X_0 = np.array([0, 1, 1, 0]).T
         # X_ego_obsrvd = np.array([0, 0, 5, 0.75]).T
-        X_ego_obsrvd = np.array([0, 0, 0, 0]).T
+        X_ego_obsrvd = np.array([0, -2, 0, 0]).T
         xgoal = 10
         ygoal = 5
-        # self.goalList = [[10,20,30,40,50],
-                        #  [5,10,20,30,40]]
-        self.goalList = [[0 ,3.0100, 11.6900, 25.0000, 41.3100, 58.6800, 75.0000, 88.3000, 96.9800,100.0000],
-                         [0, 17.1000, 32.1300, 43.3000, 49.2400, 49.2400, 43.3000, 32.1300, 17.1000, 0]]
-        self.goalList = [[0,17.1010, 32.1394,   43.3013,   49.2404,   49.2404,   43.3013,   32.1394,   17.1010,         0],
-                        [0, -3.0154,  -11.6978,  -25.0000,  -41.3176,  -58.6824,  -75.0000,  -88.3022,  -96.9846, -100.0000]]
-
+        self.goalList = [[10,20,30,40,50],
+                         [5,10,20,30,40]]
+        # self.goalList = [[0 ,3.0100, 11.6900, 25.0000, 41.3100, 58.6800, 75.0000, 88.3000, 96.9800,100.0000],
+        #                  [0, 17.1000, 32.1300, 43.3000, 49.2400, 49.2400, 43.3000, 32.1300, 17.1000, 0]]
+        # self.goalList = [[0, 17.1010, 32.1394,   43.3013,   49.2404,   49.2404,   43.3013,   32.1394,   17.1010,         0],
+                        # [0, -3.0154,  -11.6978,  -25.0000,  -41.3176,  -58.6824,  -75.0000,  -88.3022,  -96.9846, -100.0000]]
+        self.goalList = [[0 , 8.2297, 16.2350, 23.7974, 30.7106, 36.7862, 41.8583, 45.7887, 48.4700, 49.8292, 49.8292, 48.4700, 45.7887, 41.8583, 36.7862, 30.7106, 23.7974, 16.2350, 8.2297, 0, -8],
+                        [0, -0.6819, -2.7091, -6.0263,-10.5430,-16.1359,-22.6526,-29.9152,-37.7257,-45.8710,-54.1290,-62.2743,-70.0848,-77.3474,-83.8641,-89.4570,-93.9737,-97.2909,-99.3181, -100.0000, -100]]
         # self.X_0 = X_0
         self.xgoal = xgoal
         self.ygoal = ygoal
         self.X_ego_obsrvd = X_ego_obsrvd
 
         self.egotraj = JointTrajectory()
+        self.compOdom = Odometry()
         
-        self.compTraj = np.zeros((200,4))
+        self.compTraj = np.zeros((500,4))
         self.X0List = np.zeros((16,4))
 
         self.stepCount = 0 # step np. inside the segment (row number for saving comp traj)
@@ -135,7 +137,6 @@ class Highlevel():
             self.segmentCount = self.segmentCount + 1
             self.solve_ilqr = 1
 
-
         # Update competitor state
         self.X_0 = np.array([self.compx,self.compy,self.compv,self.comptheta]).T
         X, U = self.compAgent1.MPCOpt(self.X_0, self.xgoal2, self.ygoal2, self.X_ego_obsrvd)
@@ -145,6 +146,13 @@ class Highlevel():
         self.comptheta = X[3,1]
         self.compa = U[0,1]
         self.compomega = U[1,1]
+        self.compOdom.pose.pose.position.x = self.compx
+        self.compOdom.pose.pose.position.y = self.compy
+        self.compOdom.pose.pose.orientation.z = self.comptheta
+        self.compOdom.twist.twist.linear.x = self.compv
+        self.compOdom.twist.twist.angular.z = self.compomega
+        self.compOdom.twist.twist.angular.x = self.compa
+        # self.comp1odom_pub.publish(self.compOdom)
 
         # save competitor trajectory
         self.X0List[self.stepCount,:] = self.X_0
@@ -179,7 +187,7 @@ class Highlevel():
 
     def timerCallback(self,timer):
         time_begin = rospy.Time.now()
-
+        self.comp1odom_pub.publish(self.compOdom)
         if self.solve_ilqr == 1:
                         
             Xsol, _ = self.hlplanner.solve_ilqr(self.x1_0, self.y1_0, self.v1_0, self.theta1_0, self.x2_0, self.y2_0, self.v2_0, self.theta2_0, \

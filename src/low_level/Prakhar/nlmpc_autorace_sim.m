@@ -235,6 +235,9 @@ isSave = 0;
 fWidth = 560;  %480;1122
 fHeight = 335; %240;420
 
+compStates = [0,2,0,0;
+                compStates];
+
 tk = time';
 XSim = state_sim';
 XSim(3,:) = rad2deg(XSim(3,:));

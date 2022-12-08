@@ -1,0 +1,28 @@
+ct_boundary:
+
+0 - jacky wts
+1 - phi wt is 2: input.W = diag([10,10,2,2,1,0.1])
+2 - input.W = diag([6,6,2,2,2,0.1])
+3 - input.W = diag([6,6,6,2,2,0.1])
+
+If we dont weight the X,Y, the least time traj is not followed.
+If we follow the X,y, the path is away from centerline
+
+PROBLEMS:
+- zigzag if XY not weighed
+
+TRY-
+- increase trackwidth
+- weigh phi more or delta f more or v more
+
+ct_all:
+0 - input.W = diag([6,6,6,2,2,0.1])
+                input.WN = diag([5,5,2,1]);
+1 - input.W = diag([10,10,6,2,2,0.1])   ------can use
+2 - input.W = diag([10,10,0,2,2,0.1]) - goes iunstable
+3 - input.W = diag([10,10,0,2,2,0.1]); % sx, sy, phi, v, delta_f, a
+                input.WN = diag([1,1,2,1]);
+4 - input.W = diag([10,10,0,2,1,0.1]); % sx, sy, phi, v, delta_f, a
+                input.WN = diag([1,1,2,1]);
+5 - input.W = diag([10,10,0,2,1,0.1]); % sx, sy, phi, v, delta_f, a
+                input.WN = diag([1,1,0,1]);  -----------use this.

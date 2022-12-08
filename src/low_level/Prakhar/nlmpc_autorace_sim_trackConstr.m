@@ -44,7 +44,7 @@ trackwidth = 4;
 Tf = 900*.1;
 % X0 = [xTrack(1), -1, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
 % X0 = [50,         0, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions
-X0 = [0, 0, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
+X0 = [0, -2, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
 % X0 = [4, 2, deg2rad(0), 0];   % sx, sy, phi, v    % Init conditions
 
 input.od = ones(6,3);
@@ -63,7 +63,7 @@ input.W = diag([10,10,0,2,1,0.1]); % sx, sy, phi, v, delta_f, a
 input.WN = diag([1,1,0,1]);
 
 % pg_tracking_mpc
-input.W = diag([10,10,0,2,2,0.1]); % sx, sy, phi, v, delta_f, a
+input.W = diag([6,6,6,2,2,0.1]); % sx, sy, phi, v, delta_f, a
 input.WN = diag([5,5,2,1]);
 
 %% Simulation - Running
@@ -93,7 +93,7 @@ get_new_segment = 1;
 
 % list to store states/traj
 ref_traj_list = [];
-compStates = [];
+compStates = [[0,2,0,0]];
 cMapList = [];
 
 % visualize_learn;
@@ -272,6 +272,7 @@ legend("Planned Ego Trajectory", "Ego's Simulated Trajectory", "Competitor's Sim
 xlabel("X [m]")
 ylabel("Y [m]")
 title("Trajectory Plots")
+
 
 %% Helper functions
 function [ X, Y ] = genTrackRef( R, n )

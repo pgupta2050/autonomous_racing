@@ -1,6 +1,8 @@
 # AutonomousRacing
+- ROS package for autonomous racing.
+- Contains ROS noeded to run high level planner and low level tracking controller
 
-## High leveL:
+## High level:
 
 Description:
 - `pdgplanner.py` is the high-level planner of the Ego vehicle

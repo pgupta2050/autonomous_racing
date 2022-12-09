@@ -39,7 +39,7 @@ R = 50;                                         % Track radius
 [xMap,yMap] = genCircularRef(R,[R,0],1000); % Circular track
 trackMap = [xMap,yMap];
 load("waypoints_R=50_n=10_90deg.mat")
-trackwidth = 4;
+trackwidth = 10;
 
 Tf = 900*.1;
 % X0 = [xTrack(1), -1, deg2rad(90), 0];   % sx, sy, phi, v    % Init conditions

@@ -29,7 +29,7 @@
 ### Clone the project:
 ```bash
 $ cd ~/catkin_ws/src
-$ git clone 
+$ git clone https://github.com/pgupta2050/autonomous_racing.git
 $ roscore
 $ rosrun autonomous_racing high_level_node.py
 ```

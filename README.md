@@ -33,6 +33,9 @@ $ rosrun autonomous_racing high_level_node.py
 ```
 Then run the MATLAB file [nlmpc_autorace_sim_allConstr](https://github.com/pgupta2050/autonomous_racing/blob/main/src/low_level/nlmpc_autorace_sim_allConstr.m)
 
+## Simulation result for a circular track with 1 competing agent
+![image](src/low_level/sim_results/ct_all_10mTraack/untitle.jpg)
+
 ## Contributors:
 - [Viranjan Bhattcharyya](https://github.com/autonomous-viranjan)
 - [Jacky Tang](https://github.com/jackyt22)

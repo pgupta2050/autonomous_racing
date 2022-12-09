@@ -4,8 +4,9 @@
 
 ## Description:
 ### High level:
-- `pdgplanner.py` is the high-level planner of the Ego vehicle
-- `aiagent.py` contains competing AI agents
+- `pdgplanner.py` is the high-level planner class of the Ego vehicle
+- `aiagent.py` contains competing AI agent class
+- `high_level_node` is the ROS node calling these classes
 
 ### Low Level:
 - `tracking_MPC_allConstr.mexa64` is the the controller compiled from ACADO Toolkit
@@ -14,6 +15,8 @@
 ## Key dependencies:
 - `pdgplanner.py` should be in the same directory as `ilqr/` folder
 - `aiagent.py` requires Casadi in the appended path
+- ROS 
+- MATLAB
 - Python 2.7
 - Numpy 
 - Theanos

@@ -13,7 +13,7 @@
 - `nlmpc_autorace_sim_allConstr.m` is the low level control simulation ros node
 
 ## Key dependencies:
-- `pdgplanner.py` should be in the same directory as `ilqr/` folder
+- `pdgplanner.py` should be in the same directory as `ilqr/` folder. ilqr code is used from https://github.com/anassinator/ilqr
 - `aiagent.py` requires Casadi in the appended path
 - ROS 
 - MATLAB

@@ -21,16 +21,14 @@
 - ROS Toolbox from MATLAB
 
 ## Instructions to run:
-### Clone the project:
+
 ```bash
 $ cd ~/catkin_ws/src
 $ git clone https://github.com/pgupta2050/autonomous_racing.git
 $ roscore
 $ rosrun autonomous_racing high_level_node.py
 ```
-
-### To run the low levl node:
-Run the Matlab file [nlmpc_autorace_sim_allConstr](https://github.com/pgupta2050/autonomous_racing/blob/main/src/low_level/Prakhar/nlmpc_autorace_sim_allConstr.m)
+Then run the MATLAB file [nlmpc_autorace_sim_allConstr](https://github.com/pgupta2050/autonomous_racing/blob/main/src/low_level/Prakhar/nlmpc_autorace_sim_allConstr.m)
 
 ## Contributors:
 - Viranjan Bhattcharyya (https://github.com/autonomous-viranjan)

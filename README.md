@@ -36,6 +36,7 @@ Then run the MATLAB file [nlmpc_autorace_sim_allConstr](https://github.com/pgupt
 ## Simulation result for a circular track with 1 competing agent
 ![Results](/src/low_level/sim_results/ct_all_10mTraack/untitled.jpg)
 ![Snaps](time_snaps.png)
+*Time snaps: ego in blue and competitor in red*
 
 ## Contributors:
 - [Viranjan Bhattcharyya](https://github.com/autonomous-viranjan)
